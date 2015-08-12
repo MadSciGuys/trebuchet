@@ -122,25 +122,28 @@ instance FromJSON DataBlockField where
                            v .: "datablock_field_indexed"
 
 instance ToJSON P.ProtoType where
-    toJSON P.Int    = "int"
-    toJSON P.Real   = "real"
-    toJSON P.String = "string"
-    toJSON P.Binary = "binary"
+    toJSON P.Int      = "int"
+    toJSON P.Real     = "real"
+    toJSON P.String   = "string"
+    toJSON P.DateTime = "datetime"
+    toJSON P.Binary   = "binary"
 
 instance FromJSON P.ProtoType where
-    parseJSON (String "int")    = return P.Int
-    parseJSON (String "real")   = return P.Real
-    parseJSON (String "string") = return P.String
-    parseJSON (String "binary") = return P.Binary
+    parseJSON (String "int")      = return P.Int
+    parseJSON (String "real")     = return P.Real
+    parseJSON (String "string")   = return P.String
+    parseJSON (String "datetime") = return P.DateTime
+    parseJSON (String "binary")   = return P.Binary
 
 -- | Note that this instance encodes only the datablock metadata.
 instance ToJSON DataBlock where
-    toJSON (DataBlock n h o _ fs _ _ s) = typeObject "datablock"
+    toJSON (DataBlock n h o _ fs _ _ s rs) = typeObject "datablock"
             [ "datablock_name" .= n
             , "datablock_hash" .= h
             , "datablock_owner" .= o
             , "datablock_fields" .= fs
             , "datablock_byte_size" .= s
+            , "datablock_record_count" .= rs
             ]
 
 instance FromJSON Auth where
@@ -520,6 +523,10 @@ instance ToJSON P.ProtoCell where
             [ "cell_type" .= P.String
             , "cell_value" .= t
             ]
+    toJSON (P.ProtoDateTimeCell i) = typeObject "cell"
+            [ "cell_type" .= P.DateTime
+            , "cell_value" .= i
+            ]
     toJSON (P.ProtoBinaryCell b) = typeObject "cell"
             [ "cell_type" .= P.Binary
             , "cell_value" .= b
@@ -529,10 +536,11 @@ instance FromJSON P.ProtoCell where
     parseJSON (Object v) = do
         "cell" <- v .: "cell"
         t <- v .: "cell_type"
-        case t of P.Int    -> P.ProtoIntCell <$> v .: "cell_value"
-                  P.Real   -> P.ProtoRealCell <$> v .: "cell_value"
-                  P.String -> P.ProtoStringCell <$> v .: "cell_value"
-                  P.Binary -> P.ProtoBinaryCell <$> v .: "cell_value"
+        case t of P.Int      -> P.ProtoIntCell <$> v .: "cell_value"
+                  P.Real     -> P.ProtoRealCell <$> v .: "cell_value"
+                  P.String   -> P.ProtoStringCell <$> v .: "cell_value"
+                  P.DateTime -> P.ProtoDateTimeCell <$> v .: "cell_value"
+                  P.Binary   -> P.ProtoBinaryCell <$> v .: "cell_value"
 
 instance ToJSON P.ProtoInt where
     toJSON (P.ProtoInt (Just i)) = toJSON i
@@ -557,6 +565,14 @@ instance ToJSON P.ProtoString where
 instance FromJSON P.ProtoString where
     parseJSON (String t) = return $ P.ProtoString (Just (Utf8 (BL.fromStrict (E.encodeUtf8 t))))
     parseJSON Null       = return $ P.ProtoString Nothing
+
+instance ToJSON P.ProtoDateTime where
+    toJSON (P.ProtoDateTime (Just i)) = toJSON i
+    toJSON (P.ProtoDateTime Nothing)  = Null
+
+instance FromJSON P.ProtoDateTime where
+    parseJSON i@(Number _) = P.ProtoDateTime . Just <$> parseJSON i
+    parseJSON Null         = return $ P.ProtoDateTime Nothing
 
 instance ToJSON P.ProtoBinary where
     toJSON (P.ProtoBinary (Just b)) = String (TL.toStrict (EL.decodeUtf8 (B.encode b)))

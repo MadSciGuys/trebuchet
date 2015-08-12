@@ -190,6 +190,8 @@ data DataBlock = DataBlock {
   , dbMmap   :: Ptr Word8
     -- | Size of the datablock memory map in bytes.
   , dbMsize  :: Int
+    -- | Number of datablock records.
+  , dbRecs   :: Int
   }
 
 -- | Map of datablock names to datablocks.
