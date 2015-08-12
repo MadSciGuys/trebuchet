@@ -146,6 +146,55 @@ instance ToJSON DataBlock where
             , "datablock_record_count" .= rs
             ]
 
+instance ToJSON Paging where
+    toJSON (LinearSampling n) = typeObject "paging"
+        [ "paging_type" .= "linear_sampling"
+        , "paging_n" .= n
+        ]
+    toJSON (LinearChunking n) = typeObject "paging"
+            [ "paging_type" .= "linear_chunking"
+            , "paging_n" .= n
+            ]
+    toJSON Bisection = typeObject "paging" ["paging_type" .= "bisection"]
+
+instance FromJSON Paging where
+    parseJSON (Object v) = do
+        "paging" <- v .: "type"
+        t <- v .: "paging_type"
+        case t of "linear_sampling" -> LinearSampling <$> v .: "paging_n"
+                  "linear_chunking" -> LinearChunking <$> v .: "paging_n"
+                  "bisection"       -> return Bisection
+
+instance ToJSON Query where
+    toJSON (Query n f s p) = typeObject "query"
+            [ "query_datablock_name" .= n
+            , "query_filter" .= f
+            , "query_sort" .= s
+            , "query_paging" .= p
+            ]
+
+instance FromJSON Query where
+    parseJSON (Object v) = do
+        "query" <- v .: "type"
+        Query <$> v .: "query_datablock_name"
+              <*> v .: "query_filter"
+              <*> v .: "query_sort"
+              <*> v .: "query_paging"
+
+instance ToJSON NewDataBlock where
+    toJSON (NewDataBlock n o f) = typeObject "new_datablock"
+            [ "new_datablock_name" .= n
+            , "new_datablock_owner" .= o
+            , "new_datablock_fields" .= f
+            ]
+
+instance FromJSON NewDataBlock where
+    parseJSON (Object v) = do
+        "new_datablock" <- v .: "type"
+        NewDataBlock <$> v .: "new_datablock_name"
+                     <*> v .: "new_datablock_owner"
+                     <*> v .: "new_datablock_fields"
+
 instance FromJSON Auth where
     parseJSON (Object v) = do
         "auth" <- v .: "type"
@@ -164,6 +213,16 @@ instance ToJSON JobArgType where
     toJSON IntArgType    = typeObject "job_arg_type" ["job_arg_type" .= "int_arg"]
     toJSON RealArgType   = typeObject "job_arg_type" ["job_arg_type" .= "real_arg"]
     toJSON StringArgType = typeObject "job_arg_type" ["job_arg_type" .= "string_arg"]
+    toJSON (EnumArgType es) = typeObject "job_arg_type"
+            [ "job_arg_type" .= "enum_arg"
+            , "job_arg_type_enums" .= es
+            ]
+    toJSON (RegexArgType ex) = typeObject "job_arg_type"
+            [ "job_arg_type" .= "regex_arg"
+            , "job_arg_type_regex" .= ex
+            ]
+    toJSON DataBlockNameArgType = typeObject "job_arg_type" ["job_arg_type" .= "datablock_name_arg"]
+    toJSON DataBlockFieldArgType = typeObject "job_arg_type" ["job_arg_type" .= "datablock_field_arg"]
     toJSON (VectorArgType Nothing)   = typeObject "job_arg_type" ["job_arg_type" .= "vector"]
     toJSON (VectorArgType (Just [])) = typeObject "job_arg_type" ["job_arg_type" .= "vector"]
     toJSON (VectorArgType (Just s))  = typeObject "job_arg_type" ["job_arg_type" .= "vector"
@@ -174,12 +233,16 @@ instance FromJSON JobArgType where
     parseJSON (Object v) = do
         "job_arg_type" <- v .: "type"
         t <- v .: "job_arg_type"
-        case t of "bool_arg"   -> return BoolArgType
-                  "int_arg"    -> return IntArgType
-                  "real_arg"   -> return RealArgType
-                  "string_arg" -> return StringArgType
-                  "vector_arg" -> VectorArgType <$> v .:? "job_arg_type_shape"
-                  _            -> fail "bad job_arg_type"
+        case t of "bool_arg"            -> return BoolArgType
+                  "int_arg"             -> return IntArgType
+                  "real_arg"            -> return RealArgType
+                  "string_arg"          -> return StringArgType
+                  "enum_arg"            -> EnumArgType <$> v .: "job_arg_type_enums"
+                  "regex_arg"           -> RegexArgType <$> v .: "job_arg_type_regex"
+                  "datablock_name_arg"  -> return DataBlockNameArgType
+                  "datablock_field_arg" -> return DataBlockFieldArgType
+                  "vector_arg"          -> VectorArgType <$> v .:? "job_arg_type_shape"
+                  _                     -> fail "bad job_arg_type"
 
 instance ToJSON JobArg where
     toJSON (BoolArg b) = typeObject "job_arg"
@@ -197,6 +260,22 @@ instance ToJSON JobArg where
     toJSON (StringArg s) = typeObject "job_arg"
             [ "job_arg_type" .= "string_arg"
             , "job_arg_value" .= s
+            ]
+    toJSON (EnumArg s) = typeObject "job_arg"
+            [ "job_arg_type" .= "enum_arg"
+            , "job_arg_value" .= s
+            ]
+    toJSON (RegexArg s) = typeObject "job_arg"
+            [ "job_arg_type" .= "regex_arg"
+            , "job_arg_value" .= s
+            ]
+    toJSON (DataBlockNameArg n) = typeObject "job_arg"
+            [ "job_arg_type" .= "datablock_name_arg"
+            , "job_arg_value" .= n
+            ]
+    toJSON (DataBlockFieldArg n f) = typeObject "job_arg"
+            [ "job_arg_type" .= "datablock_field_arg"
+            , "job_arg_value" .= (n, f)
             ]
     toJSON (VectorArg v) = typeObject "job_arg"
             [ "job_arg_type" .= "vector_arg"
@@ -406,9 +485,9 @@ instance ToJSON DataBlockFilter where
             [ "datablock_filter_op" .= "name_regex"
             , "datablock_filter_name_regex" .= e
             ]
-    toJSON (HashExact h) = typeObject "datablock_filter"
+    toJSON (IdExact i) = typeObject "datablock_filter"
             [ "datablock_filter_op" .= "hash_exact"
-            , "datablock_filter_hash" .= h
+            , "datablock_filter_hash" .= i
             ]
     toJSON Owned = typeObject "datablock_filter"
             [ "datablock_filter_op" .= "owned" ]
@@ -452,7 +531,7 @@ instance FromJSON DataBlockFilter where
         case o of "name_type"       -> NameType <$> v .: "datablock_filter_name_type"
                   "name_exact"      -> NameExact <$> v .: "datablock_filter_name"
                   "name_regex"      -> NameRegex <$> v .: "datablock_filter_name_regex"
-                  "hash_exact"      -> HashExact <$> v .: "datablock_filter_hash"
+                  "hash_exact"      -> IdExact <$> v .: "datablock_filter_hash"
                   "owned"           -> return Owned
                   "user_id_exact"   -> UserIdExact <$> v .: "datablock_filter_user_id"
                   "user_name_exact" -> UserNameExact <$> v .: "datablock_filter_user_name"

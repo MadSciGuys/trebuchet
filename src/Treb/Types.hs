@@ -102,7 +102,7 @@ data DataBlockFilter = -- | Match datablocks with a name of a specific type.
                        --   provided regular expression.
                      | NameRegex T.Text
                        -- | Match a datablock hash exactly.
-                     | HashExact Integer
+                     | IdExact Word64
                        -- | Match datablocks that have an owner.
                      | Owned
                        -- | Match a datablock owner's user ID exactly.
@@ -141,7 +141,7 @@ instance Filterable (M.Map DataBlockName DataBlock) where
                                 compMatch (JobResultName i n) = ((T.pack (show i)) `badRegexBool` e) || (n `badRegexBool` e)
                                 compMatch (AliasName n) = n `badRegexBool` e
                             in M.filter (compMatch . dbName)
-    appAtom (HashExact h) = M.filter ((h ==) . dbHash)
+    appAtom (IdExact i) = M.filter ((i ==) . dbID)
     appAtom Owned = M.filter (isJust . dbOwner)
     appAtom (UserIdExact i) = M.filter (fromMaybe False . (((i ==) . userID) <$>) . dbOwner)
     appAtom (UserNameExact n) = M.filter (fromMaybe False . (((n ==) . userName) <$>) . dbOwner)
@@ -174,8 +174,8 @@ data DataBlockField = DataBlockField {
 data DataBlock = DataBlock {
     -- | Canonical name (i.e. not an 'AliasName').
     dbName   :: DataBlockName
-    -- | SHA1 hash.
-  , dbHash   :: Integer
+    -- | Datablock database ID.
+  , dbID     :: Word64
     -- | User ID of datablock owner.
   , dbOwner  :: Maybe User
     -- | Reference count.
@@ -249,11 +249,58 @@ instance Filterable RecordReader where
         r' <- r
         return $ S.union l' r'
 
--- | The evaluation of 'Filter DataBlockRecordFilter's requires a special
---   'ReaderT' environment. This function wraps 'appFilter' with the appropriate
+-- | The evaluation of 'Filter RecordReader's requires a special 'ReaderT'
+--   environment. This function wraps 'appFilter' with the appropriate
 --   environment.
 appRecordFilter :: Filter RecordReader -> DataBlock -> S.Set (Int, Int)
 appRecordFilter f d = runReader (appFilter f (return S.empty)) (dbIndex d)
+
+-- | Result paging strategy.
+data Paging = -- | Linear sampling returns every nth point in the result set.
+              --   For n = 4, the first page contains the 0th, 4th, 8th, ...
+              --   records, the next page contains the 1st, 5th, 9th, ...
+              --   records, etc.
+              LinearSampling Int
+              -- | Linear chunking returns contiguous pages of n points. For
+              --   n = 4, the first page contains the 0th, 1st, 2nd, and 3rd
+              --   records, the next page contains the 4th, 5th, 6th, and 7th
+              --   records, etc.
+            | LinearChunking Int
+              -- | Bisection returns 2^n records on the nth page request, i.e.
+              --   the points that would appear on the nth level of a balanced
+              --   binary tree of the records. For example, let the record set
+              --   be [1..10]. The first page contains 4, the next page contains
+              --   2 and 8, the next page contains 1, 3, 6, and 9, etc.
+            | Bisection
+            deriving (Eq, Ord, Show)
+
+-- | Datablock record query, consisting of a 'Filter RecordReader' and optional
+--   sorting and paging directives.
+data Query = Query {
+    -- | The 'DataBlock' to query.
+    qDataBlock :: DataBlockName
+    -- | Record filter.
+  , qFilter    :: Filter RecordReader
+    -- | Optional sorting directive. The 'Bool' indicates whether or not sort
+    --   order should be reversed('False' indicates lowest-to-highest according
+    --   to the 'Ord' instance). The 'T.Text' is the name of the field to sort
+    --   on, which must be indexed.
+  , qSort      :: Maybe (Bool, T.Text)
+    -- | Query result paging strategy.
+  , qPage      :: Paging
+  } deriving (Eq, Ord, Show)
+
+-- | Caller request for new datablock.
+data NewDataBlock = NewDataBlock {
+    -- | Canonical name (i.e. not an 'AliasName').
+    ndbName :: DataBlockName
+    -- | Datablock owner's user ID.
+  , ndbOwner :: Word64
+    -- | Map of field names to field handling directives. If the 'Bool' is
+    --   true, the field will be indexed. If a 'ProtoType' is provided, use of
+    --   the corresponding parser will be forced.
+  , ndbFields :: M.Map T.Text (Bool, Maybe ProtoType)
+  } deriving (Eq, Show)
 
 -- | User authentication message.
 data Auth = Auth {
@@ -298,20 +345,45 @@ instance Show User where
 type UserMap = MVar (M.Map Word64 (MVar User))
 
 -- | Job argument type.
-data JobArgType = BoolArgType                 -- ^ Boolean argument.
-                | IntArgType                  -- ^ Integral argument.
-                | RealArgType                 -- ^ Real number argument.
-                | StringArgType               -- ^ String argument.
-                | VectorArgType (Maybe [Int]) -- ^ Vector argument, with
-                                              --   optional shape requirement.
+data JobArgType = -- | Boolean argument.
+                  BoolArgType
+                  -- | Integral argument.
+                | IntArgType
+                  -- | Real number argument.
+                | RealArgType
+                  -- | Arbitrary string argument.
+                | StringArgType
+                  -- | Enumeration argument.
+                | EnumArgType [T.Text]
+                  -- | String argument recognized by provided regex.
+                | RegexArgType T.Text
+                  -- | 'DataBlockName' argument.
+                | DataBlockNameArgType
+                  -- | Pair of 'DataBlockName' and 'DataBlockField'.
+                | DataBlockFieldArgType
+                  -- | Vector argument, with optional shape requirement.
+                | VectorArgType (Maybe [Int])
                 deriving (Eq, Ord, Show)
 
 -- | Job argument.
-data JobArg = BoolArg   Bool              -- ^ Boolean argument.
-            | IntArg    Integer           -- ^ Integral argument.
-            | RealArg   Double            -- ^ Real number argument.
-            | StringArg T.Text            -- ^ String argument.
-            | VectorArg (V.Vector JobArg) -- ^ Vector argument.
+data JobArg = -- | Boolean argument.
+              BoolArg   Bool
+              -- | Integral argument.
+            | IntArg    Integer
+              -- | Real number argument.
+            | RealArg   Double
+              -- | String argument.
+            | StringArg T.Text
+              -- | Enumeration argument.
+            | EnumArg T.Text
+              -- | String argument recognized by provided regex.
+            | RegexArg T.Text
+              -- | 'DataBlockName' argument.
+            | DataBlockNameArg DataBlockName
+              -- | Pair of 'DataBlockName' and 'DataBlockField'.
+            | DataBlockFieldArg DataBlockName DataBlockField
+              -- | Vector argument.
+            | VectorArg (V.Vector JobArg)
             deriving (Eq, Ord, Show)
 
 -- | Job argument validation abstract syntax tree, describing a simple language
@@ -334,8 +406,8 @@ data JobTemplate = JobTemplate {
     -- | Job template name.
     jobTemplateName   :: T.Text
     -- | Job template parameter set, specifiying which arguments /may/ be
-    --   present.
-  , jobTemplateParams :: M.Map T.Text JobArgType
+    --   present, with optional default vaule.
+  , jobTemplateParams :: M.Map T.Text (JobArgType, Maybe JobArg)
     -- | Job argument constraints.
   , jobTemplateConstr :: JobArgVal
   } deriving (Eq, Ord, Show)
