@@ -155,7 +155,8 @@ instance ToJSON Paging where
             [ "paging_type" .= "linear_chunking"
             , "paging_n" .= n
             ]
-    toJSON Bisection = typeObject "paging" ["paging_type" .= "bisection"]
+    toJSON Bisection  = typeObject "paging" ["paging_type" .= "bisection"]
+    toJSON Contiguous = typeObject "paging" ["paging_type" .= "contiguous"]
 
 instance FromJSON Paging where
     parseJSON (Object v) = do
@@ -164,6 +165,7 @@ instance FromJSON Paging where
         case t of "linear_sampling" -> LinearSampling <$> v .: "paging_n"
                   "linear_chunking" -> LinearChunking <$> v .: "paging_n"
                   "bisection"       -> return Bisection
+                  "contiguous"      -> return Contiguous
 
 instance ToJSON Query where
     toJSON (Query n f s p) = typeObject "query"

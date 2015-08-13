@@ -6,6 +6,10 @@ License:     MIT
 Maintainer:  twhitak@its.jnj.com
 Stability:   Provisional
 Portability: POSIX
+
+The types in this module represent both server-internal representations of the
+objects of exchange (datablocks, queries, jobs, users, etc.) and discrete
+messages sent between the server and API callers.
 -}
 
 {-# LANGUAGE TypeFamilies
@@ -50,27 +54,39 @@ import System.Posix.Types
 import Treb.Filter
 import Treb.BadRegex
 
--- | Datablock name. Each datablock has at least one unique element of this
---   type.
-data DataBlockName = AdHocName T.Text -- ^ Ad-hoc (i.e. user provided)
-                                      --   datablock.
+-- | A reference to a datablock. Each datablock has at least one unique element
+--   of this type, elsewhere known as the "canonical name". 'AdHocName',
+--   'RecipeName', and 'JobResultName' values are considered canonical names,
+--   while 'AliasName' values are not. In other words, each datablock has a
+--   single unique name of either the 'AdHocName', 'RecipeName', or
+--   'JobResultName' types, with zero or more additional names of the
+--   'AliasName' type.
+data DataBlockName = -- | Ad-hoc (i.e. user provided) datablock.
+                     AdHocName T.Text
+                     -- | Recipe datablock, from an automated data pipeline.
                    | RecipeName {
                        compoundName :: T.Text   -- ^ Compound name.
                      , recipeNames  :: [T.Text] -- ^ Recipe names in topological
                                                 --   order.
-                     }                -- ^ Recipe datablock.
-                   | JobResultName Word64 T.Text -- ^ Job execution result.
-                   | AliasName T.Text            -- ^ Datablock alias.
+                     }
+                     -- | Job execution result, including the 'Job' ID and name.
+                   | JobResultName Word64 T.Text
+                     -- | A datablock alias.
+                   | AliasName T.Text
                    deriving (Eq, Ord, Show)
 
--- | Datablock name type.
-data DataBlockNameType = AdHocType
+-- | The type of a 'DataBlockName'.
+data DataBlockNameType = -- | Ad-hoc (i.e. user provided) datablock.
+                         AdHocType
+                         -- | Recipe datablock, from an automated data pipeline.
                        | RecipeType
+                         -- | Job execution result.
                        | JobResultType
+                         -- | A datablock alias.
                        | AliasType
                        deriving (Eq, Ord, Show)
 
--- | Get the datablock name type.
+-- | Get the type of a 'DataBlockName'.
 dataBlockNameType :: DataBlockName -> DataBlockNameType
 dataBlockNameType (AdHocName _)       = AdHocType
 dataBlockNameType (RecipeName _ _)    = RecipeType
@@ -93,7 +109,9 @@ isAliasType :: DataBlockName -> Bool
 isAliasType (AliasName _) = True
 isAliasType _             = False
 
--- | Datablock filter atoms.
+-- | Datablock filter atoms. Each of these constructors represents a predicate
+--   on datablocks, allowing API callers to effectively search for datablocks
+--   based on their type, name, owners, etc.
 data DataBlockFilter = -- | Match datablocks with a name of a specific type.
                        NameType DataBlockNameType
                        -- | Match a datablock name exactly.
@@ -101,7 +119,7 @@ data DataBlockFilter = -- | Match datablocks with a name of a specific type.
                        -- | Match all datablock names recognized by the
                        --   provided regular expression.
                      | NameRegex T.Text
-                       -- | Match a datablock hash exactly.
+                       -- | Match a datablock ID exactly.
                      | IdExact Word64
                        -- | Match datablocks that have an owner.
                      | Owned
@@ -155,7 +173,8 @@ instance Filterable (M.Map DataBlockName DataBlock) where
     conj = M.intersection
     disj = M.union
 
--- | Name, type, and array description of a datablock field.
+-- | Name, type, and array description of a datablock field. Datablock field
+--   names are expected to be unique within a datablock.
 data DataBlockField = DataBlockField {
     fieldName    :: T.Text
   , fieldType    :: ProtoType
@@ -170,13 +189,14 @@ data DataBlockField = DataBlockField {
   , fieldIndexed :: Bool
   } deriving (Eq, Ord, Show)
 
--- | Internal representation of a datablock.
+-- | Server-internal representation of a datablock.
 data DataBlock = DataBlock {
     -- | Canonical name (i.e. not an 'AliasName').
     dbName   :: DataBlockName
     -- | Datablock database ID.
   , dbID     :: Word64
-    -- | User ID of datablock owner.
+    -- | User ID of datablock owner; 'Nothing' if the datablock was provided by
+    --   an automated process.
   , dbOwner  :: Maybe User
     -- | Reference count.
   , dbRefs   :: TVar Int
@@ -207,7 +227,10 @@ type CellIndex = M.Map T.Text (M.Map ProtoCell (S.Set (Int, Int)))
 --   conjuction and disjuction operations.
 type RecordReader = Reader CellIndex (S.Set (Int, Int))
 
--- | Datablock record filter atoms.
+-- | Datablock record filter atoms. Each of these constructors represents a
+--   predicate on datablock records, allowing API callers to request a subset
+--   of the records available in a datablock. The referenced fields must be
+--   indexed fields of the queried datablock.
 data DataBlockRecordFilter = -- | Equality (== x).
                              FieldEq   T.Text ProtoCell
                              -- | Greater than (> x).
@@ -255,7 +278,10 @@ instance Filterable RecordReader where
 appRecordFilter :: Filter RecordReader -> DataBlock -> S.Set (Int, Int)
 appRecordFilter f d = runReader (appFilter f (return S.empty)) (dbIndex d)
 
--- | Result paging strategy.
+-- | Result paging strategy. The results of 'Query' execution may be very
+--   large; paging allows the client to incrementally process the result set.
+--   Various paging strategies are supported; the coice of paging strategy will
+--   depend on the API caller's intention.
 data Paging = -- | Linear sampling returns every nth point in the result set.
               --   For n = 4, the first page contains the 0th, 4th, 8th, ...
               --   records, the next page contains the 1st, 5th, 9th, ...
@@ -272,6 +298,8 @@ data Paging = -- | Linear sampling returns every nth point in the result set.
               --   be [1..10]. The first page contains 4, the next page contains
               --   2 and 8, the next page contains 1, 3, 6, and 9, etc.
             | Bisection
+              -- | The result set is returned as a single page.
+            | Contiguous
             deriving (Eq, Ord, Show)
 
 -- | Datablock record query, consisting of a 'Filter RecordReader' and optional
@@ -319,7 +347,7 @@ data User = User {
     -- | Email
   , email    :: T.Text
     -- | User token, only present if user is logged in.
-  , token    :: MVar B.ByteString
+  , token    :: MVar (Maybe B.ByteString)
   }
 
 -- | Assumes that there exists a total bijective function between user IDs and
@@ -422,9 +450,9 @@ data JobConfig = JobConfig {
   , jobTemplate   :: JobTemplate
     -- | Job arguments.
   , jobArgs       :: M.Map T.Text JobArg
-    -- | The datablocks to be fed to the job, each with an optional query
+    -- | The datablocks to be fed to the job, each with an optional 'query'
     --   applied.
-  , jobDataBlocks :: [(DataBlockName, Maybe (Filter RecordReader))]
+  , jobDataBlocks :: [(DataBlockName, Maybe Query)]
   } deriving (Eq, Ord, Show)
 
 -- | Job error.
