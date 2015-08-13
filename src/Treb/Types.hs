@@ -389,6 +389,8 @@ data JobArgType = -- | Boolean argument.
                 | DataBlockNameArgType
                   -- | Pair of 'DataBlockName' and 'DataBlockField'.
                 | DataBlockFieldArgType
+                  -- | Datablock tag argument, see 'JobConfig'.
+                | DataBlockTagArgType
                   -- | Vector argument, with optional shape requirement.
                 | VectorArgType (Maybe [Int])
                 deriving (Eq, Ord, Show)
@@ -410,6 +412,8 @@ data JobArg = -- | Boolean argument.
             | DataBlockNameArg DataBlockName
               -- | Pair of 'DataBlockName' and 'DataBlockField'.
             | DataBlockFieldArg DataBlockName DataBlockField
+              -- | Datablock tag argument.
+            | DataBlockTagArg T.Text
               -- | Vector argument.
             | VectorArg (V.Vector JobArg)
             deriving (Eq, Ord, Show)
@@ -450,9 +454,9 @@ data JobConfig = JobConfig {
   , jobTemplate   :: JobTemplate
     -- | Job arguments.
   , jobArgs       :: M.Map T.Text JobArg
-    -- | The datablocks to be fed to the job, each with an optional 'query'
-    --   applied.
-  , jobDataBlocks :: [(DataBlockName, Maybe Query)]
+    -- | The datablocks to be fed to the job, each with a unique(within one
+    --   'JobConfig') textual tag and optional 'query' applied.
+  , jobDataBlocks :: [(T.Text, DataBlockName, Maybe Query)]
   } deriving (Eq, Ord, Show)
 
 -- | Job error.
@@ -484,7 +488,7 @@ data Job = Job {
     -- | Job status. 'Nothing' if the job is still executing.
   , jobStatus     :: Maybe (Either JobError UTCTime)
     -- | Job results. 'Nothing' if the job is still executing.
-  , jobResult     :: Maybe DataBlockName
+  , jobResult     :: Maybe [DataBlockName]
   } deriving (Eq, Show)
 
 type JobTemplateMap = MVar (M.Map T.Text (MVar JobTemplate))

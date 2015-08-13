@@ -24,6 +24,8 @@ import Prelude hiding (String)
 
 import Control.Applicative
 
+import Control.Monad (ap)
+
 import Data.Aeson
 import Data.Aeson.Types (Parser, Pair)
 
@@ -225,6 +227,7 @@ instance ToJSON JobArgType where
             ]
     toJSON DataBlockNameArgType = typeObject "job_arg_type" ["job_arg_type" .= "datablock_name_arg"]
     toJSON DataBlockFieldArgType = typeObject "job_arg_type" ["job_arg_type" .= "datablock_field_arg"]
+    toJSON DataBlockTagArgType = typeObject "job_arg_type" ["job_arg_type" .= "datablock_tag_arg"]
     toJSON (VectorArgType Nothing)   = typeObject "job_arg_type" ["job_arg_type" .= "vector"]
     toJSON (VectorArgType (Just [])) = typeObject "job_arg_type" ["job_arg_type" .= "vector"]
     toJSON (VectorArgType (Just s))  = typeObject "job_arg_type" ["job_arg_type" .= "vector"
@@ -243,6 +246,7 @@ instance FromJSON JobArgType where
                   "regex_arg"           -> RegexArgType <$> v .: "job_arg_type_regex"
                   "datablock_name_arg"  -> return DataBlockNameArgType
                   "datablock_field_arg" -> return DataBlockFieldArgType
+                  "datablock_tag_arg"   -> return DataBlockTagArgType
                   "vector_arg"          -> VectorArgType <$> v .:? "job_arg_type_shape"
                   _                     -> fail "bad job_arg_type"
 
@@ -279,6 +283,10 @@ instance ToJSON JobArg where
             [ "job_arg_type" .= "datablock_field_arg"
             , "job_arg_value" .= (n, f)
             ]
+    toJSON (DataBlockTagArg t) = typeObject "job_arg"
+            [ "job_arg_type" .= "datablock_tag_arg"
+            , "job_arg_value" .= t
+            ]
     toJSON (VectorArg v) = typeObject "job_arg"
             [ "job_arg_type" .= "vector_arg"
             , "job_arg_value" .= v
@@ -288,10 +296,15 @@ instance FromJSON JobArg where
     parseJSON (Object v) = do
         "job_arg" <- v .: "type"
         t <- v .: "arg_type"
-        case t of "bool_arg"   -> BoolArg <$> v .: "job_arg_value"
-                  "int_arg"    -> IntArg <$> v .: "job_arg_value"
-                  "real_arg"   -> RealArg <$> v .: "job_arg_value"
-                  "string_arg" -> StringArg <$> v .: "job_arg_value"
+        case t of "bool_arg"            -> BoolArg <$> v .: "job_arg_value"
+                  "int_arg"             -> IntArg <$> v .: "job_arg_value"
+                  "real_arg"            -> RealArg <$> v .: "job_arg_value"
+                  "string_arg"          -> StringArg <$> v .: "job_arg_value"
+                  "enum_arg"            -> EnumArg <$> v .: "job_arg_value"
+                  "regex_arg"           -> RegexArg <$> v .: "job_arg_value"
+                  "datablock_name_arg"  -> DataBlockNameArg <$> v .: "job_arg_value"
+                  "datablock_field_arg" -> ((`ap` snd) . (. fst)) DataBlockFieldArg <$> v .: "job_arg_value"
+                  "datablock_tag_arg"   -> DataBlockTagArg <$> v .: "job_arg_value"
                   "vector_arg" -> VectorArg <$> v .: "job_arg_value"
                   _            -> fail "bad job_arg_type in job_arg"
 
