@@ -155,8 +155,8 @@ instance Filterable (M.Map DataBlockName DataBlock) where
     appAtom (NameType t) = M.filter ((t ==) . dataBlockNameType . dbName)
     appAtom (NameExact n) = lookupMap n
     appAtom (NameRegex e) = let compMatch (AdHocName n) = n `badRegexBool` e
-                                compMatch (RecipeName cn rns) = (cn `badRegexBool` e) || (and $ map (`badRegexBool` e) rns)
-                                compMatch (JobResultName i n) = ((T.pack (show i)) `badRegexBool` e) || (n `badRegexBool` e)
+                                compMatch (RecipeName cn rns) = (cn `badRegexBool` e) || all (`badRegexBool` e) rns
+                                compMatch (JobResultName i n) = (T.pack (show i) `badRegexBool` e) || (n `badRegexBool` e)
                                 compMatch (AliasName n) = n `badRegexBool` e
                             in M.filter (compMatch . dbName)
     appAtom (IdExact i) = M.filter ((i ==) . dbID)
@@ -353,7 +353,7 @@ data User = User {
 -- | Assumes that there exists a total bijective function between user IDs and
 --   users.
 instance Eq User where
-    a == b = (userID a) == (userID b)
+    a == b = userID a == userID b
 
 -- | Displays only user metadata.
 instance Show User where

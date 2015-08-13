@@ -18,4 +18,4 @@ import Text.Regex.TDFA
 
 -- | Evaluate a regular expression over 'T.Text' by unpacking the 
 badRegexBool :: T.Text -> T.Text -> Bool
-badRegexBool x e = (T.unpack x) =~ (T.unpack e)
+badRegexBool x e = T.unpack x =~ T.unpack e
