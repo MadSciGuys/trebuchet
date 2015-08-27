@@ -34,23 +34,23 @@ instance FromJSON CASAuth where
 instance ToJSON DataBlock where
     toJSON db =
       mobject
-        [ "type"                   .= String "datablock"
-        , "datablock_id"           .= datablockId db
-        , "datablock_name"         .= datablockName db
-        , "datablock_fields"       .= datablockFields db
-        , "datablock_record_count" .= datablockRecordCount db
-        , "datablock_source"       .= datablockSource db
-        , "datablock_records"      .= datablockRecords db ]
+        [ "type"         .= String "datablock"
+        , "id"           .= datablockId db
+        , "name"         .= datablockName db
+        , "fields"       .= datablockFields db
+        , "record_count" .= datablockRecordCount db
+        , "source"       .= datablockSource db
+        , "records"      .= datablockRecords db ]
           
 instance FromJSON DataBlock where
     parseJSON o@(Object v) = do
       "datablock" <- v .: "type" :: Parser Text
-      DataBlock <$> v .:  "datablock_id"
-                <*> v .:  "datablock_name"
-                <*> v .:  "datablock_fields"
-                <*> v .:  "datablock_record_count"
-                <*> v .:? "datablock_source"
-                <*> v .:? "datablock_records"
+      DataBlock <$> v .:  "id"
+                <*> v .:  "name"
+                <*> v .:  "fields"
+                <*> v .:  "record_count"
+                <*> v .:? "source"
+                <*> v .:? "records"
 
 instance ToJSON DataBlockCell where
   toJSON cell =
@@ -71,32 +71,32 @@ instance FromJSON DataBlockCell where
 instance ToJSON DataBlockCreate where
     toJSON dbc =
       mobject
-        [ "type"                     .= String "datablock_create"
-        , "datablock_create_name"    .= datablockCreateName dbc
-        , "datablock_create_fields"  .= datablockCreateFields dbc
-        , "datablock_create_records" .= datablockCreateRecords dbc ]
+        [ "type"    .= String "datablock_create"
+        , "name"    .= datablockCreateName dbc
+        , "fields"  .= datablockCreateFields dbc
+        , "records" .= datablockCreateRecords dbc ]
           
 instance FromJSON DataBlockCreate where
     parseJSON (Object v) = do
       "datablock_create" <- v .: "type" :: Parser Text
-      DataBlockCreate <$> v .:  "datablock_create_name"
-                      <*> v .:? "datablock_create_fields"
-                      <*> v .:? "datablock_create_records"
+      DataBlockCreate <$> v .:  "name"
+                      <*> v .:? "fields"
+                      <*> v .:? "records"
 
 instance ToJSON DataBlockField where
     toJSON (DataBlockField name ty indexed) =
       mobject $
-        [ "type"                    .= String "datablock_field"
-        , "datablock_field_name"    .= name
-        , "datablock_field_type"    .= ty
-        , "datablock_field_indexed" .= indexed ]
+        [ "type"     .= String "datablock_field"
+        , "name"     .= name
+        , "datatype" .= ty
+        , "indexed"  .= indexed ]
           
 instance FromJSON DataBlockField where
     parseJSON (Object v) = do
       "datablock_field" <- v .: "type" :: Parser Text
-      DataBlockField <$> v .: "datablock_field_name"
-                     <*> v .: "datablock_field_type"
-                     <*> v .:? "datablock_field_indexed"
+      DataBlockField <$> v .:  "name"
+                     <*> v .:  "datatype"
+                     <*> v .:? "indexed"
 
 instance ToJSON DataBlockFieldType where
     toJSON dbft =
@@ -133,34 +133,34 @@ instance ToJSON DataBlockName where
         [ "type" .= ("datablock_name" :: Text) ]
         ++ case dbn of
           AdHocName text ->
-            [ "datablock_name_type" .= ("ad_hoc" :: Text)
-            , "datablock_name_text" .= text ]
+            [ "datatype" .= ("ad_hoc" :: Text)
+            , "text" .= text ]
           RecipeName c rs ->
-            [ "datablock_name_type" .= ("recipe" :: Text)
-            , "datablock_name_compound" .= c
-            , "datablock_name_recipes" .= rs ]
+            [ "datatype" .= ("recipe" :: Text)
+            , "compound" .= c
+            , "recipes" .= rs ]
           JobResultName jobId text ->
-            [ "datablock_name_type" .= ("job_result" :: Text)
-            , "datablock_name_job_id" .= show jobId
-            , "datablock_name_text" .= text ]
+            [ "datatype" .= ("job_result" :: Text)
+            , "job_id" .= show jobId
+            , "text" .= text ]
           AliasName text ->
-            [ "datablock_name_type" .= ("alias" :: Text)
-            , "datablock_name_text" .= text ]
+            [ "datatype" .= ("alias" :: Text)
+            , "text" .= text ]
           
 instance FromJSON DataBlockName where
     parseJSON (Object v) = do
         "datablock_name" <- v .: "type" :: Parser Text
-        t <- v .: "datablock_name_type"
+        t <- v .: "datatype"
         case t of
           AdHocType     ->
-            AdHocName <$> v .: "datablock_name_text"
+            AdHocName <$> v .: "text"
           RecipeType    ->
-            RecipeName <$> v .: "datablock_name_compound"
-                       <*> v .: "datablock_name_recipes"
+            RecipeName <$> v .: "compound"
+                       <*> v .: "recipes"
           JobResultType ->
-            JobResultName <$> fmap read (v .: "datablock_name_job_id") <*> v .: "datablock_name_text"
+            JobResultName <$> fmap read (v .: "job_id") <*> v .: "text"
           AliasType     ->
-            AliasName <$> v .: "datablock_name_text"
+            AliasName <$> v .: "text"
 instance ToJSON DataBlockNameType where
     toJSON dbnt =
       String $ case dbnt of
@@ -183,114 +183,132 @@ instance ToJSON DataBlockSource where
       [ "type" .= String "datablock_source" ]
       ++ case src of
         APIUserSource username ->
-          [ "datablock_source_type"     .= String "api_user"
-          , "datablock_source_username" .= username ]
+          [ "datatype" .= String "api_user"
+          , "username" .= username ]
         APIJobSource jobId ->
-          [ "datablock_source_type"   .= String "api_job"
-          , "datablock_source_job_id" .= jobId ]
+          [ "datatype" .= String "api_job"
+          , "job_id"   .= jobId ]
         DataPipelineSource sourceId ->
-          [ "datablock_source_type"             .= String "data_pipeline"
-          , "datablock_source_data_pipeline_id" .= sourceId ]
+          [ "datatype"         .= String "data_pipeline"
+          , "data_pipeline_id" .= sourceId ]
 
 instance FromJSON DataBlockSource where
   parseJSON (Object o) = do
     "datablock_source" <- o .: "type" :: Parser Text
-    ty <- o .: "datablock_source_type" :: Parser Text
+    ty <- o .: "datatype" :: Parser Text
     case ty of
       "api_user" ->
         APIUserSource <$>
-          o .: "datablock_source_username"
+          o .: "username"
       "api_job" ->
         APIJobSource <$>
-          o .: "datablock_source_job_id"
+          o .: "job_id"
       "data_pipeline" ->
         DataPipelineSource <$>
-          o .: "datablock_source_data_pipeline_id"
+          o .: "data_pipeline_id"
 
 instance ToJSON Job where
   toJSON j =
     mobject
-      [ "type"                 .= String "job"
-      , "job_id"               .= jobId j
-      , "job_name"             .= jobCreateName jc
-      , "job_template_id"      .= jobCreateTemplateId jc
-      , "job_owner_username"   .= jobOwnerUsername j
-      , "job_status"           .= jobStatus j
-      , "job_start_time"       .= jobStartTime j
-      , "job_end_time"         .= jobEndTime j
-      , "job_input_datablocks" .= [ mobject [ "input_datablock_id"     .= dbId
-                                            , "input_datablock_filter" .= dbFilter
-                                            , "input_datablock_key"    .= dbKey ] | (dbId, dbKey, dbFilter) <- jobCreateInputDataBlocks jc ]
-      , "job_arguments"        .= [ mobject [ "argument_name"  .= name
-                                            , "argument_value" .= value ] | (name, value) <- jobCreateArguments jc ] ]
+      [ "type"             .= String "job"
+      , "id"               .= jobId j
+      , "name"             .= jobCreateName jc
+      , "template_id"      .= jobCreateTemplateId jc
+      , "owner_username"   .= jobOwnerUsername j
+      , "status"           .= jobStatus j
+      , "start_time"       .= jobStartTime j
+      , "end_time"         .= jobEndTime j
+      , "input_datablocks" .= inputDatablockSetToJson jc
+      , "arguments"        .= argumentSetToJson jc ]
     where
       jc = jobCreate j
+
 instance FromJSON Job where
   parseJSON (Object v) = do
     "job" <- v .: "type" :: Parser Text
-    Job <$> v .: "job_id"
+    Job <$> v .: "id"
         <*> jc
-        <*> v .: "job_owner_username"
-        <*> v .: "job_status"
-        <*> v .: "job_start_time"
-        <*> v .: "job_end_time"
+        <*> v .: "owner_username"
+        <*> v .: "status"
+        <*> v .: "start_time"
+        <*> v .: "end_time"
     where
-      jc = JobCreate <$> v .: "job_name"
-                     <*> v .: "job_template_id"
-                     <*> (mapM (\(Object u) -> (,,) <$> u .: "input_datablock_id" <*> u .: "input_datablock_key" <*> u .: "input_datablock_filter") =<< v .: "job_input_datablocks")
-                     <*> v .: "job_arguments"
+      jc = JobCreate <$> v .: "name"
+                     <*> v .: "template_id"
+                     <*> (v .: "input_datablocks" >>= mapM parseInputDatablock)
+                     <*> (v .: "arguments" >>= mapM parseArgument)
+
+parseArgument :: Value -> Parser (Text, JobArgument)
+parseArgument (Object v) =
+        (,) <$> v .: "name"
+            <*> v .: "value"
+
+parseInputDatablock :: Value -> Parser (DataBlockId, Maybe Text, Maybe DataBlockRecordFilter)
+parseInputDatablock (Object v) = 
+        (,,) <$> v .: "datablock_id"
+             <*> v .: "datablock_key"
+             <*> v .: "datablock_filter"
+
+inputDatablockSetToJson :: JobCreate -> [Value]
+inputDatablockSetToJson jc = [ mobject [ "datablock_id"     .= dbId
+                                       , "datablock_filter" .= dbFilter
+                                       , "datablock_key"    .= dbKey ]
+                                       | (dbId, dbKey, dbFilter) <- jobCreateInputDataBlocks jc ]
+
+argumentSetToJson :: JobCreate -> [Value]
+argumentSetToJson jc = [ mobject [ "name"  .= name
+                                 , "value" .= value ]
+                                 | (name, value) <- jobCreateArguments jc ]
 
 instance ToJSON JobStatus where
   toJSON js =
     case js of
       JobSuccess dbId ->
         mobject
-          [ "type"            .= String "job_status"
-          , "job_status_type" .= String "success"
-          , "job_status_success_output_datablock_id" .= dbId ]
+          [ "type"                .= String "job_status"
+          , "datatype"            .= String "success"
+          , "output_datablock_id" .= dbId ]
       JobFailed r ->
         mobject
-          [ "type"                      .= String "job_status"
-          , "job_status_type"           .= String "failed"
-          , "job_status_failure_reason" .= r ]
+          [ "type"           .= String "job_status"
+          , "datatype"       .= String "failed"
+          , "failure_reason" .= r ]
       JobCanceled u ->
         mobject
-          [ "type"                   .= String "job_status"
-          , "job_status_type"        .= String "canceled"
-          , "job_status_canceled_by" .= String u ]
+          [ "type"        .= String "job_status"
+          , "datatype"    .= String "canceled"
+          , "canceled_by" .= String u ]
       JobRunning ->
         mobject
-          [ "type"            .= String "job_status"
-          , "job_status_type" .= String "running" ]
+          [ "type"     .= String "job_status"
+          , "datatype" .= String "running" ]
 
 instance FromJSON JobStatus where
   parseJSON (Object v) = do
     "job_status" <- v .: "job_status" :: Parser Text
-    ty <- v .: "job_status_type" :: Parser Text
+    ty <- v .: "datatype" :: Parser Text
     case ty of
-      "success"  -> JobSuccess  <$> v .: "job_status_success_output_datablock_id"
-      "failed"   -> JobFailed   <$> v .: "job_status_failure_reason"
-      "canceled" -> JobCanceled <$> v .: "job_status_canceled_by"
+      "success"  -> JobSuccess  <$> v .: "output_datablock_id"
+      "failed"   -> JobFailed   <$> v .: "failure_reason"
+      "canceled" -> JobCanceled <$> v .: "canceled_by"
       "running"  -> pure JobRunning
 
 instance ToJSON JobCreate where
   toJSON jc =
     mobject
-      [ "type" .= String "job_create"
-      , "job_create_name"             .= jobCreateName jc
-      , "job_create_template_id"      .= jobCreateTemplateId jc
-      , "job_create_input_datablocks" .= [ mobject [ "input_datablock_id"     .= dbId
-                                                   , "input_datablock_filter" .= dbFilter
-                                                   , "input_datablock_key"    .= dbKey ] | (dbId, dbKey, dbFilter) <- jobCreateInputDataBlocks jc ]
-      , "job_create_arguments"        .= [ mobject [ "argument_name"  .= name
-                                                   , "argument_value" .= value ] | (name, value) <- jobCreateArguments jc ] ]
+      [ "type"             .= String "job_create"
+      , "name"             .= jobCreateName jc
+      , "template_id"      .= jobCreateTemplateId jc
+      , "input_datablocks" .= inputDatablockSetToJson jc
+      , "arguments"        .= argumentSetToJson jc ]
+
 instance FromJSON JobCreate where
   parseJSON (Object v) = do
     "job_create" <- v .: "job_create" :: Parser Text
-    JobCreate <$> v .: "job_create_name"
-              <*> v .: "job_create_template_id"
-              <*> (mapM (\(Object u) -> (,,) <$> u .: "input_datablock_id" <*> u .: "input_datablock_key" <*> u .: "input_datablock_filter") =<< v .: "job_create_input_datablocks")
-              <*> v .: "job_create_arguments"
+    JobCreate <$> v .: "name"
+              <*> v .: "template_id"
+              <*> (v .: "input_datablocks" >>= mapM parseInputDatablock)
+              <*> (v .: "arguments" >>= mapM parseArgument)
 
 instance ToJSON JobArgument where
   toJSON ja =
@@ -308,9 +326,6 @@ instance FromJSON JobArgument where
       Number n -> JobArgumentNumber <$> pure n 
       Array  v -> JobArgumentVector <$> V.mapM parseJSON v
 
--- instance FromJSON DataBlockRecordAtom where
---   parseJSON (String s) = return s
-
 instance ToJSON a => ToJSON (FilterQuery a) where
   toJSON fq =
     case fq of
@@ -327,87 +342,87 @@ instance ToJSON a => ToJSON (FilterQuery a) where
                 , "operator" .= String "not"
                 , "operand"  .= q ]
       FilterQueryAtom m n -> 
-        mobject [ "type"     .= String "filter_atom"
-                , "filter_atom_name"   .= n
-                , "filter_atom_match"  .= m ]
+        mobject [ "type"       .= String "filter_atom"
+                , "atom_name"  .= n
+                , "atom_match" .= m ]
 
 instance FromJSON a => FromJSON (FilterQuery a) where
   parseJSON (Object v) =
         (do "filter_operator" <- v .: "type" :: Parser Text
-            operator <- v .: "filter_operator" :: Parser Text
+            operator <- v .: "operator" :: Parser Text
             case operator of
-              "and" -> FilterQueryAnd <$> v .: "filter_operands"
-              "or"  -> FilterQueryOr  <$> v .: "filter_operands"
-              "not" -> FilterQueryNot <$> v .: "filter_operand")
+              "and" -> FilterQueryAnd <$> v .: "operands"
+              "or"  -> FilterQueryOr  <$> v .: "operands"
+              "not" -> FilterQueryNot <$> v .: "operand")
     <|> (do "filter_atom" <- v .: "type" :: Parser Text
-            FilterQueryAtom <$> v .: "filter_atom_match"
-                            <*> v .: "filter_atom_name")
+            FilterQueryAtom <$> v .: "atom_match"
+                            <*> v .: "atom_name")
     
 instance ToJSON FilterQueryMatch where
   toJSON fqm =
     case fqm of
       FilterQueryMatchEq     x ->
-        mobject [ "filter_atom_match_name"  .= String "eq"
-                , "filter_atom_match_value" .= x ]
+        mobject [ "match_name"  .= String "eq"
+                , "match_value" .= x ]
       FilterQueryMatchNeq    x -> 
-        mobject [ "filter_atom_match_name"  .= String "neq"    
-                , "filter_atom_match_value" .= x ]
+        mobject [ "match_name"  .= String "neq"    
+                , "match_value" .= x ]
       FilterQueryMatchLt     x -> 
-        mobject [ "filter_atom_match_name"  .= String "lt"     
-                , "filter_atom_match_value" .= x ]
+        mobject [ "match_name"  .= String "lt"     
+                , "match_value" .= x ]
       FilterQueryMatchLte    x ->
-        mobject [ "filter_atom_match_name"  .= String  "lte"    
-                , "filter_atom_match_value" .= x ]
+        mobject [ "match_name"  .= String  "lte"    
+                , "match_value" .= x ]
       FilterQueryMatchGt     x ->
-        mobject [ "filter_atom_match_name"  .= String  "gt"     
-                , "filter_atom_match_value" .= x ]
+        mobject [ "match_name"  .= String  "gt"     
+                , "match_value" .= x ]
       FilterQueryMatchGte    x ->
-        mobject [ "filter_atom_match_name"  .= String  "gte"    
-                , "filter_atom_match_value" .= x ]
+        mobject [ "match_name"  .= String  "gte"    
+                , "match_value" .= x ]
       FilterQueryMatchBool   x ->
-        mobject [ "filter_atom_match_name"  .= String  "bool"   
-                , "filter_atom_match_value" .= x ]
+        mobject [ "match_name"  .= String  "bool"   
+                , "match_value" .= x ]
       FilterQueryMatchString x ->
-        mobject [ "filter_atom_match_name"  .= String  "string" 
-                , "filter_atom_match_value" .= x ]
+        mobject [ "match_name"  .= String  "string" 
+                , "match_value" .= x ]
       FilterQueryMatchRegex  x ->
-        mobject [ "filter_atom_match_name"  .= String  "regex"  
-                , "filter_atom_match_value" .= x ]
+        mobject [ "match_name"  .= String  "regex"  
+                , "match_value" .= x ]
 
 instance FromJSON FilterQueryMatch where
   parseJSON (Object v) = do
-    matchName <- v .: "filter_atom_match_name" :: Parser Text
+    matchName <- v .: "match_name" :: Parser Text
     case matchName of
-      "eq"     -> FilterQueryMatchEq     <$> v .: "filter_atom_match_value"
-      "neq"    -> FilterQueryMatchNeq    <$> v .: "filter_atom_match_value"
-      "lt"     -> FilterQueryMatchLt     <$> v .: "filter_atom_match_value"
-      "lte"    -> FilterQueryMatchLte    <$> v .: "filter_atom_match_value"
-      "gt"     -> FilterQueryMatchGt     <$> v .: "filter_atom_match_value"
-      "gte"    -> FilterQueryMatchGte    <$> v .: "filter_atom_match_value"
-      "bool"   -> FilterQueryMatchBool   <$> v .: "filter_atom_match_value"
-      "string" -> FilterQueryMatchString <$> v .: "filter_atom_match_value"
-      "regex"  -> FilterQueryMatchRegex  <$> v .: "filter_atom_match_value"
+      "eq"     -> FilterQueryMatchEq     <$> v .: "match_value"
+      "neq"    -> FilterQueryMatchNeq    <$> v .: "match_value"
+      "lt"     -> FilterQueryMatchLt     <$> v .: "match_value"
+      "lte"    -> FilterQueryMatchLte    <$> v .: "match_value"
+      "gt"     -> FilterQueryMatchGt     <$> v .: "match_value"
+      "gte"    -> FilterQueryMatchGte    <$> v .: "match_value"
+      "bool"   -> FilterQueryMatchBool   <$> v .: "match_value"
+      "string" -> FilterQueryMatchString <$> v .: "match_value"
+      "regex"  -> FilterQueryMatchRegex  <$> v .: "match_value"
 
 instance ToJSON JobTemplate where
   toJSON jt =
     mobject
-      [ "type"                              .= String "job_template"
-      , "job_template_id"                   .= jobTemplateId jt
-      , "job_template_name"                 .= jobTemplateName jt
-      , "job_template_description"          .= jobTemplateDescription jt
-      , "job_template_parameters"           .= jobTemplateParameters jt
-      , "job_template_input_datablock_keys" .= jobTemplateInputDatablockKeys jt
-      , "job_template_parameter_validation"  .= jobTemplateParameterValidation jt ]
+      [ "type"                 .= String "job_template"
+      , "id"                   .= jobTemplateId jt
+      , "name"                 .= jobTemplateName jt
+      , "description"          .= jobTemplateDescription jt
+      , "parameters"           .= jobTemplateParameters jt
+      , "input_datablock_keys" .= jobTemplateInputDatablockKeys jt
+      , "parameter_validation" .= jobTemplateParameterValidation jt ]
 
 instance FromJSON JobTemplate where
   parseJSON (Object v) = do
     "job_template" <- v .: "type" :: Parser Text
-    JobTemplate <$> v .: "job_template_id"
-                <*> v .: "job_template_name"
-                <*> v .: "job_template_description"
-                <*> v .: "job_template_parameters"
-                <*> v .: "job_template_input_datablock_keys"
-                <*> v .: "job_template_parameter_validation"
+    JobTemplate <$> v .: "id"
+                <*> v .: "name"
+                <*> v .: "description"
+                <*> v .: "parameters"
+                <*> v .: "input_datablock_keys"
+                <*> v .: "parameter_validation"
 
 instance ToJSON JobTemplateParameterType where
   toJSON jtpt =
@@ -451,63 +466,60 @@ instance FromJSON JobTemplateParameterType where
 instance ToJSON JobTemplateParameter where
   toJSON jtp =
     mobject
-      [ "type"                               .= String "job_template_parameter"
-      , "job_template_parameter_name"        .= jobTemplateParameterName jtp
-      , "job_template_parameter_description" .= jobTemplateParameterDescription jtp
-      , "job_template_parameter_default"     .= jobTemplateParameterDefault jtp
-      , "job_template_parameter_type"        .= jobTemplateParameterType jtp ]
+      [ "type"        .= String "job_template_parameter"
+      , "name"        .= jobTemplateParameterName jtp
+      , "description" .= jobTemplateParameterDescription jtp
+      , "default"     .= jobTemplateParameterDefault jtp
+      , "type"        .= jobTemplateParameterType jtp ]
 
 instance FromJSON JobTemplateParameter where
   parseJSON (Object v) = do
     "job_template_parameter" <- v .: "type" :: Parser Text
-    JobTemplateParameter <$> v .: "job_template_parameter_name"
-                         <*> v .: "job_template_parameter_description"
-                         <*> v .: "job_template_parameter_default"
-                         <*> v .: "job_template_parameter_type"
+    JobTemplateParameter <$> v .: "name"
+                         <*> v .: "description"
+                         <*> v .: "default"
+                         <*> v .: "type"
 
 instance ToJSON JobParameterValidation where
   toJSON jpv =
     case jpv of
       JobParameterValidationName name ->
         mobject
-          [ "type"                          .= String "job_parameter_validation"
-          , "job_parameter_validation_type" .= String "parameter_name"
-          , "job_parameter_validation_name" .= name ]
+          [ "type"     .= String "job_parameter_validation"
+          , "datatype" .= String "parameter_name"
+          , "name"     .= name ]
       JobParameterValidationAnd vs ->
         mobject
-          [ "type"                              .= String "job_parameter_validation"
-          , "job_parameter_validation_type"     .= String "operator"
-          , "job_parameter_validation_operator" .= String "and"
-          , "job_parameter_validation_operands" .= vs ]
+          [ "type"     .= String "job_parameter_validation"
+          , "datatype" .= String "operator"
+          , "operator" .= String "and"
+          , "operands" .= vs ]
       JobParameterValidationOr  vs ->
         mobject
-          [ "type"                              .= String "job_parameter_validation"
-          , "job_parameter_validation_type"     .= String "operator"
-          , "job_parameter_validation_operator" .= String "or"
-          , "job_parameter_validation_operands" .= vs ]
+          [ "type"     .= String "job_parameter_validation"
+          , "datatype" .= String "operator"
+          , "operator" .= String "or"
+          , "operands" .= vs ]
       JobParameterValidationNot  v ->
         mobject
-          [ "type"                              .= String "job_parameter_validation"
-          , "job_parameter_validation_type"     .= String "operator"
-          , "job_parameter_validation_operator" .= String "not"
-          , "job_parameter_validation_operand"  .= v ]
+          [ "type"     .= String "job_parameter_validation"
+          , "datatype" .= String "operator"
+          , "operator" .= String "not"
+          , "operand"  .= v ]
 
 instance FromJSON JobParameterValidation where
   parseJSON (Object v) = do
     "job_parameter_validation" <- v .: "type" :: Parser Text
-    ty <- v .: "job_parameter_validation_type" :: Parser Text
+    ty <- v .: "datatype" :: Parser Text
     case ty of
       "parameter_name" ->
-        JobParameterValidationName <$> v .: "job_parameter_validation_name"
+        JobParameterValidationName <$> v .: "name"
       "operator" -> do
-        ty' <- v .: "job_parameter_validation_type" :: Parser Text
-        case ty' of
-          "and" ->
-            JobParameterValidationAnd <$> v .: "job_parameter_validation_operands"
-          "or"  ->
-            JobParameterValidationOr <$> v .: "job_parameter_validation_operands"
-          "not" ->
-            JobParameterValidationNot <$> v .: "job_parameter_validation_operand"
+        op <- v .: "operator" :: Parser Text
+        case op of
+          "and" -> JobParameterValidationAnd <$> v .: "operands"
+          "or"  -> JobParameterValidationOr  <$> v .: "operands"
+          "not" -> JobParameterValidationNot <$> v .: "operand"
 
 instance ToJSON (Maybe MIME.Type) where
     toJSON = maybe Null String . (>>= Just . MIME.showType)
@@ -526,33 +538,33 @@ instance FromJSON (Maybe MIME.Type) where
 instance ToJSON DataBlockCreationResponse where
   toJSON r =
     mobject
-      [ "type"                        .= String "datablock_creation"
-      , "datablock_creation_file_url" .= datablockCreationResponseFileURL r
-      , "datablock_creation_timeout"  .= formatISO8601 (datablockCreationResponseTimeout r) ]
+      [ "type"     .= String "datablock_creation"
+      , "file_url" .= datablockCreationResponseFileURL r
+      , "timeout"  .= formatISO8601 (datablockCreationResponseTimeout r) ]
 
 instance FromJSON DataBlockCreationResponse where
   parseJSON (Object v) = do
     "datablock_creation" <- v .: "type" :: Parser Text
-    creationTimeout <- parseISO8601 <$> v .: "datablock_creation_timeout"
-    DataBlockCreationResponse <$> v .: "datablock_creation_file_url"
-                              <*> pure (maybe (error "ISO 8601 date-time parse failed") (\time -> time) creationTimeout)
+    creationTimeout <- parseISO8601 <$> v .: "timeout"
+    DataBlockCreationResponse <$> v .: "file_url"
+                              <*> pure (maybe (error "ISO 8601 date-time parse failed") id creationTimeout)
 
 instance ToJSON User where
   toJSON u =
     mobject
-      [ "type" .= String "user"
-      , "user_username" .= userUsername u
-      , "user_name" .= userName u
-      , "user_email" .= userEmail u
-      , "user_datablocks" .= userDataBlocks u ]
+      [ "type"       .= String "user"
+      , "username"   .= userUsername u
+      , "name"       .= userName u
+      , "email"      .= userEmail u
+      , "datablocks" .= userDataBlocks u ]
 
 instance FromJSON User where
   parseJSON (Object v) = do
     "user" <- v .: "type" :: Parser Text
-    User <$> v .: "user_username"
-         <*> v .: "user_name"
-         <*> v .: "user_email"
-         <*> v .: "user_datablocks"
+    User <$> v .: "username"
+         <*> v .: "name"
+         <*> v .: "email"
+         <*> v .: "datablocks"
 
 instance ToJSON DataBlockSetAtom where
   toJSON a =
@@ -616,8 +628,8 @@ instance ToJSON DataPipeline where
   toJSON dp =
     mobject
       [ "type" .= String "data_pipeline"
-      , "data_pipeline_id" .= dataPipelineId dp
-      , "data_pipeline_name" .= dataPipelineName dp ]
+      , "id" .= dataPipelineId dp
+      , "name" .= dataPipelineName dp ]
 
 instance FromJSON DataPipeline where
   parseJSON (Object v) = do
