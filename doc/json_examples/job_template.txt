@@ -1,0 +1,61 @@
+{
+    # Optional: List of valid keys for input datablocks to jobs using this job template. This is only necessary when multiple datablocks are given as input, in which case, they are uniquely identified by these keys.
+    "job_template_input_datablock_keys": [
+        "DATABLOCK_A",
+        "DATABLOCK_B"
+    ],
+    # Optional: (This field can be ignored for now.) Parameter validation is encoded as a simple boolean AST. A "parameter_name" job template parameter just requires that the parameter with the given name is present in requests to create jobs with this job template. An operator, such as "and", "or", or "not", can be used to combine these "parameter_name" assertions as is intuitive.
+    # In this case, we have the simplest validation object, which is just a single parameter is required.
+    "job_template_parameter_validation": {
+        "job_parameter_validation_type": "parameter_name",
+        "job_parameter_validation_name": "R_CUTOFF",
+        "type": "job_parameter_validation"
+    },
+    "job_template_id": "dabc1232",
+    # Parameters expected by jobs using this job template are given here. I will leave it to intution to understand the semantics of this.
+    "job_template_parameters": [
+        {
+            "job_template_parameter_name": "R_CUTOFF",
+            "job_template_parameter_description": "The minimum value of...",
+            "type": "job_template_parameter",
+            # Job template parameters can have any of the following types:
+              # "bool"            #
+              # "date_time"       # Value should be an ISO 8601 date time string. (This is the default string form of dates in JavaScript.)
+              # "int"             #
+              # "real"            #
+              # "string"          #
+              # "datablock"       # Value should be a datablock ID
+              # "datablock_field" # Value should be a datablock field name
+              # "datablock_key"   # Value should be a datablock key
+              # {"enum": [<string-1>, ...]            # Value should be one of the strings in the given list.
+              # {"regex": <regex-as-string> }         # Value should be a string that matches the regular expression.
+              # {"vector": <parameter-type>, "vector_size": <number> } # (vector_size is optional) Value should be a list of elements of the given type. Where vector_size is set, the length of list should match exactly that number.
+            "job_template_parameter_type": "bool"
+        },
+        {
+            "job_template_parameter_name": "ESTIMATION",
+            "type": "job_template_parameter",
+            # Optional: Default value.
+            "job_template_parameter_default": "Median",
+            "job_template_parameter_type": {
+                "enum": ["Median", "Mode", "Mean"]
+            }
+        },
+        {
+            "job_template_parameter_name": "Pivot Vectors",
+            "type": "job_template_parameter",
+            # This accepts values such as: [[1,2,3],[5,6,7]] or []
+            # but does not accept values such as: [[1,2]] or [[]]
+            "job_template_parameter_type": {
+                "vector": {
+                    "vector": "int",
+                    "vector_size": 3
+                }
+            }
+        }
+    ],
+    "job_template_name": "Least Squares",
+    # Optional: User-relevant description of the job template.
+    "job_template_description": "This runs the least squares...",
+    "type": "job_template"
+}

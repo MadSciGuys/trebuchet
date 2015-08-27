@@ -1,0 +1,27 @@
+{
+    "type": "datablock_name",
+
+    # DataBlock recipe-type names include a compound and list of recipe names.
+    # The compound is a string usually of the form "<product> <ingredient-1> <ingredient-2> ... <ingredient-n>".
+    # The order of the recipe names matters. A recipe containing this:
+    #
+    # "datablock_name_recipes": [
+    #     "Vanilla Cake",
+    #     "Chocolate Cake"
+    #  ]
+    #
+    # and another containing this:
+    #
+    # "datablock_name_recipes": [
+    #     "Chocolate Cake",
+    #     "Vanilla Cake"
+    #  ]
+    #
+    # are not equal.
+    "datablock_name_type": "recipe",
+    "datablock_name_compound": "Gainer JNJ-526403 Astatine",
+    "datablock_name_recipes": [
+        "Vanilla Cake",
+        "Chocolate Cake"
+    ]
+}

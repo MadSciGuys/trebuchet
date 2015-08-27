@@ -1,0 +1,79 @@
+{
+    # Optional: Name to give to the job.
+    "job_create_name": "Example Job",
+    # Optional: Arguments to the Job.
+    "job_create_arguments": [
+        {
+            # Argument values can be any of the following JSON values: string, bool, number, n-depth array of string/bool/number.
+            "argument_value": "MVS",
+            "argument_name": "MODEL_TYPE"
+        },
+        {
+            "argument_value": 555,
+            "argument_name": "MODEL_SEED"
+        }
+    ],
+    "job_create_input_datablocks": [
+        {
+            # Optional: When there are multiple input datablocks to a job, a key can be used to distinguish each input datablock. This corresponds with the keys listed in the job template.
+            "input_datablock_key": "X_BLOCK",
+            # Each input datablock must at least include a datablock ID
+            "input_datablock_id": "123abcd"
+        },
+        {
+            "input_datablock_key": "Y_BLOCK",
+            # A filter constrains the records of the datablock corresponding with the datablock ID in this same object. I think it makes most sense just to apply some intuition to this structure.
+            "input_datablock_filter": {
+                "operator": "and",
+                "operands": [
+                    {
+                        "filter_atom_name": "VOLTAGE",
+                        "filter_atom_match": {
+                            "filter_atom_match_name": "eq",
+                            "filter_atom_match_value": 123
+                        },
+                        "type": "filter_atom"
+                    },
+                    {
+                        "filter_atom_name": "AMPERAGE",
+                        "filter_atom_match": {
+                            "filter_atom_match_name": "lt",
+                            "filter_atom_match_value": 50
+                        },
+                        "type": "filter_atom"
+                    },
+                    {
+                        "operator": "not",
+                        "type": "filter_operator",
+                        "operand": {
+                            "operator": "and",
+                            "operands": [
+                                {
+                                    "filter_atom_name": "VOLTAGE",
+                                    "filter_atom_match": {
+                                        "filter_atom_match_name": "lt",
+                                        "filter_atom_match_value": 42
+                                    },
+                                    "type": "filter_atom"
+                                },
+                                {
+                                    "filter_atom_name": "TITLE",
+                                    "filter_atom_match": {
+                                        "filter_atom_match_name": "regex",
+                                        "filter_atom_match_value": "SPECIAL.*"
+                                    },
+                                    "type": "filter_atom"
+                                }
+                            ],
+                            "type": "filter_operator"
+                        }
+                    }
+                ],
+                "type": "filter_operator"
+            },
+            "input_datablock_id": "123aaa"
+        }
+    ],
+    "type": "job_create",
+    "job_create_template_id": "templ12345"
+}

@@ -1,0 +1,9 @@
+{
+    "type": "datablock_name",
+
+    # DataBlock Job Result names are uniquely identified by the Job ID.
+    # The text is a name that is sensible to present to end users.
+    "datablock_name_type": "job_result",
+    "datablock_name_job_id": "90765",
+    "datablock_name_text": "Proto-Analysis Synergistic Remicade Chromatogram"
+}

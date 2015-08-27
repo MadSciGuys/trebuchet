@@ -1,0 +1,7 @@
+{
+	"title": "Datablock Array",
+	"type": "array",
+	"items": {
+		"$ref": "datablock.json"
+	}
+}

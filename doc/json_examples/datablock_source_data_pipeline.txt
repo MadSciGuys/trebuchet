@@ -1,0 +1,8 @@
+{
+    "type": "datablock_source",
+
+    # DataBlock data pipeline sources include an ID that can be used to uniquely identify the corresponding Data Pipeline.
+    # One can then GET /data_pipeline/:data_pipeline_id to get some additional data regarding the data pipeline, like its name.
+    "datablock_source_type": "data_pipeline",
+    "datablock_source_data_pipeline_id": "5427"
+}

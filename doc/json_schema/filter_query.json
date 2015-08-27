@@ -1,0 +1,53 @@
+{
+	"title": "Filter Query",
+	"type": "object",
+	"properties": {
+		"filter_entity": {
+			"enum": [ "datablock", "job" ]
+		},
+		"filter_constraints": {
+			"id": "filter_constraints_node",
+			"oneOf": [
+				{
+					"name": "Variadic operator",
+					"type": "object",
+					"properties": {
+						"operator": {
+							"enum": [ "and", "or" ]
+						},
+						"operands": {
+							"type": "array",
+							"items": {
+								"$ref": "filter_constraints_node"
+							},
+							"minItems": 2
+						}
+					}
+				},
+				{
+					"name": "Unary operator",
+					"type": "object",
+					"properties": {
+						"operator": {
+							"enum": [ "not" ]
+						},
+						"operand": {
+							"$ref": "filter_constraints_node"
+						}
+					}
+				},
+				{
+					"name": "Atom",
+					"type": "object",
+					"properties": {
+						"atom_key": {
+							"type": "string"
+						},
+						"atom_value": {
+						}
+					}
+				}
+			]
+		}
+	}
+}

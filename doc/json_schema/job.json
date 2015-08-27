@@ -1,0 +1,66 @@
+{
+	"title": "Job Entity",
+	"type": "object",
+	"properties": {
+		"job_id": {
+			"type": "string"
+		},
+		"job_owner_id": {
+			"type": "string"
+		},
+		"job_start": {
+			"type": "integer"
+		},
+		"job_end": {
+			"type": "integer"
+		},
+		"job_status": {
+			"oneOf": [
+				{
+					"type": "object",
+					"properties": {
+						"job_status_type": {
+							"enum": [ "success" ]
+						}
+					},
+					"additionalProperties": false,
+					"required": [ "job_status_type" ]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"job_status_type": {
+							"enum": [ "failure" ]
+						},
+						"job_status_error_code": {
+							"type": "string",
+							"pattern": "^[a-z_]+$"
+						},
+						"job_status_error_message": {
+							"type": "string"
+						}
+					},
+					"additionalProperties": false,
+					"required": [ "job_status_type", "job_status_error_code", "job_status_error_message" ]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"job_status_type": {
+							"enum": [ "running" ]
+						}
+					},
+					"required": [ "job_status_type" ]
+				}
+			]
+		},
+		"job_input_datablock_id": {
+			"type": "string"
+		},
+		"job_output_datablock_id": {
+			"type": "string"
+		}
+	},
+	"additionalProperties": false,
+	"required": [ "job_id", "job_start", "job_end", "job_status", "job_input_datablock_id", "job_output_datablock_id" ]
+}

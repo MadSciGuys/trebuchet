@@ -1,0 +1,7 @@
+{
+	"title": "Job Template Array",
+	"type": "array",
+	"items": {
+		"$ref": "job_template.json"
+	}
+}

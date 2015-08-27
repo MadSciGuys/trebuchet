@@ -1,0 +1,49 @@
+{
+	"title": "Datablock Entity Metadata",
+	"type": "object",
+	"properties": {
+		"datablock_id": {
+			"type": "string"
+		},
+		"datablock_name": {
+			"type": "string"
+		},
+		"datablock_fields": {
+			"type": "array",
+			"items": {
+				"type": "object",
+				"properties": {
+					"datablock_field_name": {
+						"type": "string"
+					},
+					"datablock_field_type": {
+						"enum": [ "int", "real", "string", "binary" ]
+					},
+					"datablock_field_indexed": {
+						"type": "boolean"
+					}
+				},
+				"additionalProperties": false,
+				"required": [ "datablock_field_name", "datablock_field_type", "datablock_field_indexed" ]
+			}
+		},
+		"datablock_record_count": {
+			"type": "integer"
+		},
+		"datablock_source": {
+			"type": "object",
+			"properties": {
+				"datablock_source_type": {
+					"enum": [ "api_user", "api_job", "data_pipeline" ]
+				},
+				"datablock_source_id":  {
+					"type": "string"
+				}
+			},
+			"additionalProperties": false,
+			"required": [ "datablock_source_type", "datablock_source_id" ]
+		}
+	},
+	"additionalProperties": false,
+	"required": [ "datablock_id", "datablock_name", "datablock_fields", "datablock_record_count" ]
+}

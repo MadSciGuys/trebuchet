@@ -1,0 +1,49 @@
+{
+	"title": "Job Creation Payload",
+	"type": "object",
+	"properties": {
+		"job_template_id": {
+			"type": "string"
+		},
+		"job_input_datablocks": {
+			"type": "array",
+			"items": {
+				"type": "object",
+				"properties": {
+					"input_datablock_name": {
+						"type": "string"
+					},
+					"input_datablock_filter": {
+						"$ref": "filter_query.json"
+					}
+				},
+				"require": [ "input_datablock_name" ]
+			},
+			"minItems": 1
+		},
+		"job_name": {
+			"type": "string"
+		},
+		"job_arguments": {
+			"type": "array",
+			"items": {
+				"type": "object",
+				"properties": {
+					"job_argument_name": {
+						"type": "string"
+					},
+					"job_argument_value": {
+						"not": {
+							"type": [ "null", "object" ]
+						}
+					}
+				},
+				"additionalProperties": false,
+				"required": [ "job_argument_name", "job_argument_value" ]
+			}
+
+		}
+	},
+	"additionalProperties": false,
+	"required": [ "job_template_id", "job_input_datablock_id" ]
+}

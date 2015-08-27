@@ -1,0 +1,7 @@
+{
+    "type": "datablock_source",
+
+    # API User's can upload new DataBlocks. Each such DataBlock has this kind of source.
+    "datablock_source_type": "api_user",
+    "datablock_source_username": "tek"
+}

@@ -1,0 +1,9 @@
+{
+    "type": "datablock_name",
+
+    # AdHoc DataBlock names are user-specified. All DataBlocks uploaded by users have names of this form.
+    "datablock_name_type": "ad_hoc",
+
+    # These names must be unique among AdHoc DataBlock names.
+    "datablock_name_text": "Quantabulous Tylenol Spectrogram"
+}

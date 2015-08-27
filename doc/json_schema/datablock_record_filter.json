@@ -1,0 +1,23 @@
+{
+	"type": "object",
+	"properties": {
+		"type": {
+			"enum": [ "datablock_record_filter" ]
+		},
+		"datablock_record_filter_field_whitelist": {
+			"type": "array",
+			"items": {
+				"type": "string"
+			}
+		},
+		"datablock_record_filter_field_blacklist": {
+			"type": "array",
+			"items": {
+				"type": "string"
+			}
+		},
+		"datablock_record_filter_query": {
+			"$ref": "filter_query.json"
+		}
+	}
+}

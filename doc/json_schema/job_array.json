@@ -1,0 +1,7 @@
+{
+	"title": "Job Array",
+	"type": "array",
+	"items": {
+		"$ref": "job.json"
+	}
+}

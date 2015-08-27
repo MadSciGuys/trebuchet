@@ -1,0 +1,75 @@
+{
+	"title": "Datablock Entity",
+	"type": "object",
+	"properties": {
+		"datablock_id": {
+			"type": "string"
+		},
+		"datablock_name": {
+			"$ref": "datablock_name.json"
+		},
+		"datablock_owner_username": {
+			"type": "string"
+		},
+		"datablock_fields": {
+			"type": "array",
+			"items": {
+				"type": "object",
+				"properties": {
+					"datablock_field_name": {
+						"type": "string"
+					},
+					"datablock_field_type": {
+						"oneOf": [
+							{
+								"enum": [ "int", "real", "string" ]
+							},
+							{
+								"type": "object",
+								"properties": {
+									"binary": {
+										"title": "MIME Type",
+										"type": "string",
+										"pattern": "[\w]+/[+-\w]+"
+									}
+								}
+							}
+						]
+					},
+					"datablock_field_indexed": {
+						"type": "boolean"
+					}
+				},
+				"additionalProperties": false,
+				"required": [ "datablock_field_name", "datablock_field_type", "datablock_field_indexed" ]
+			}
+		},
+		"datablock_record_count": {
+			"type": "integer"
+		},
+		"datablock_records": {
+			"type": "array",
+			"items": {
+				"type": "array",
+				"items": {
+					"type": [ "boolean", "integer", "number", "string" ]
+				}
+			}
+		},
+		"datablock_source": {
+			"type": "object",
+			"properties": {
+				"datablock_source_type": {
+					"enum": [ "api_user", "api_job", "data_pipeline" ]
+				},
+				"datablock_source_id":  {
+					"type": "string"
+				}
+			},
+			"additionalProperties": false,
+			"required": [ "datablock_source_type", "datablock_source_id" ]
+		}
+	},
+	"additionalProperties": false,
+	"required": [ "datablock_id", "datablock_name", "datablock_fields", "datablock_record_count", "datablock_records", "datablock_source" ]
+}
