@@ -177,7 +177,7 @@ instance Filterable (M.Map DataBlockName DataBlock) where
 --   names are expected to be unique within a datablock.
 data DataBlockField = DataBlockField {
     fieldName    :: T.Text
-  , fieldType    :: ProtoType
+  , fieldType    :: ProtoCell
   -- | If the field is a scalar, this will equal the empty list. If it is a
   --   vector, it will contain a list of integers describing the maximum length
   --   in each dimension in row-major order. For example, a three dimensional
@@ -188,6 +188,11 @@ data DataBlockField = DataBlockField {
   , vectorShape  :: [Int]
   , fieldIndexed :: Bool
   } deriving (Eq, Ord, Show)
+
+-- data DataBlockFieldType = DataBlockFieldType {
+--     protoType :: ProtoType
+--   , mimeType  :: Maybe MimeType
+--   }
 
 -- | Server-internal representation of a datablock.
 data DataBlock = DataBlock {
