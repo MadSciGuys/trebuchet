@@ -161,6 +161,7 @@ instance FromJSON DataBlockName where
             JobResultName <$> fmap read (v .: "job_id") <*> v .: "text"
           AliasType     ->
             AliasName <$> v .: "text"
+
 instance ToJSON DataBlockNameType where
     toJSON dbnt =
       String $ case dbnt of
