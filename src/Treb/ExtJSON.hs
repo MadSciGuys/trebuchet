@@ -130,22 +130,22 @@ instance FromJSON DataBlockFieldType where
 instance ToJSON DataBlockName where
     toJSON dbn =
       mobject $
-        [ "type" .= ("datablock_name" :: Text) ]
+        [ "type" .= String "datablock_name" ]
         ++ case dbn of
           AdHocName text ->
-            [ "datatype" .= ("ad_hoc" :: Text)
-            , "text" .= text ]
+            [ "datatype" .= String "ad_hoc"
+            , "text"     .= text ]
           RecipeName c rs ->
-            [ "datatype" .= ("recipe" :: Text)
+            [ "datatype" .= String "recipe"
             , "compound" .= c
-            , "recipes" .= rs ]
+            , "recipes"  .= rs ]
           JobResultName jobId text ->
-            [ "datatype" .= ("job_result" :: Text)
-            , "job_id" .= show jobId
-            , "text" .= text ]
+            [ "datatype" .= String "job_result"
+            , "job_id"   .= show jobId
+            , "text"     .= text ]
           AliasName text ->
-            [ "datatype" .= ("alias" :: Text)
-            , "text" .= text ]
+            [ "datatype" .= String "alias"
+            , "text"     .= text ]
           
 instance FromJSON DataBlockName where
     parseJSON (Object v) = do
@@ -436,7 +436,8 @@ instance ToJSON JobTemplateParameterType where
       JobTemplateParameterTypeDataBlockFieldName -> String "datablock_field"
       JobTemplateParameterTypeDataBlockKey       -> String "datablock_key"
       JobTemplateParameterTypeEnum enum ->
-        Array (V.map String $ V.fromList enum)
+        mobject
+          [ "enum" .= Array (V.map String $ V.fromList enum) ]
       JobTemplateParameterTypeRegex regex -> 
         mobject
           [ "regex" .= regex ]
@@ -457,7 +458,8 @@ instance FromJSON JobTemplateParameterType where
       "datablock_field" -> JobTemplateParameterTypeDataBlockFieldName
       "datablock_key"   -> JobTemplateParameterTypeDataBlockKey
   parseJSON (Object v) =
-        (JobTemplateParameterTypeRegex <$> v .: "regex")
+        (JobTemplateParameterTypeEnum <$> v .: "enum")
+    <|> (JobTemplateParameterTypeRegex <$> v .: "regex")
     <|> (JobTemplateParameterTypeVector <$> v .: "vector_size"
                                         <*> v .: "vector")
   parseJSON a@(Array v) =
@@ -470,7 +472,7 @@ instance ToJSON JobTemplateParameter where
       , "name"        .= jobTemplateParameterName jtp
       , "description" .= jobTemplateParameterDescription jtp
       , "default"     .= jobTemplateParameterDefault jtp
-      , "type"        .= jobTemplateParameterType jtp ]
+      , "datatype"    .= jobTemplateParameterType jtp ]
 
 instance FromJSON JobTemplateParameter where
   parseJSON (Object v) = do
@@ -478,7 +480,7 @@ instance FromJSON JobTemplateParameter where
     JobTemplateParameter <$> v .: "name"
                          <*> v .: "description"
                          <*> v .: "default"
-                         <*> v .: "type"
+                         <*> v .: "datatype"
 
 instance ToJSON JobParameterValidation where
   toJSON jpv =
