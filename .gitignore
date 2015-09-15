@@ -24,3 +24,6 @@ cabal.sandbox.config
 *.hp
 .stack-work/
 cabal.config
+
+# Arcanist
+.arcconfig
