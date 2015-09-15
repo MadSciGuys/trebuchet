@@ -12,6 +12,7 @@ import Control.Applicative
 import Data.Aeson.Types (Parser, Pair)
 import Data.Monoid ((<>))
 import Data.Text (Text)
+import Data.Maybe (fromMaybe)
 
 import qualified Data.Vector as V
 import qualified Codec.MIME.Parse as MIME
@@ -407,70 +408,76 @@ instance ToJSON JobTemplate where
 instance FromJSON JobTemplate where
   parseJSON (Object v) = do
     "job_template" <- v .: "type" :: Parser Text
-    JobTemplate <$> v .: "id"
-                <*> v .: "name"
-                <*> v .: "description"
-                <*> v .: "parameters"
-                <*> v .: "input_datablock_keys"
-                <*> v .: "parameter_validation"
+    JobTemplate <$> v .:  "id"
+                <*> v .:  "name"
+                <*> v .:  "description"
+                <*> v .:  "parameters"
+                <*> v .:? "input_datablock_keys"
+                <*> v .:? "parameter_validation"
 
 instance ToJSON JobTemplateParameterType where
   toJSON jtpt =
     case jtpt of
-      JobTemplateParameterTypeBool               -> String "bool"
-      JobTemplateParameterTypeDateTime           -> String "date_time"
-      JobTemplateParameterTypeInt                -> String "int"
-      JobTemplateParameterTypeReal               -> String "real"
-      JobTemplateParameterTypeString             -> String "string"
-      JobTemplateParameterTypeDataBlockName      -> String "datablock"
-      JobTemplateParameterTypeDataBlockFieldName -> String "datablock_field"
-      JobTemplateParameterTypeDataBlockKey       -> String "datablock_key"
       JobTemplateParameterTypeEnum enum ->
         mobject
-          [ "enum" .= Array (V.map String $ V.fromList enum) ]
+          [ "datatype" .= String "enum"
+          , "enum"     .= Array (V.map String $ V.fromList enum) ]
       JobTemplateParameterTypeRegex regex -> 
         mobject
-          [ "regex" .= regex ]
+          [ "datatype" .= String "regex"
+          , "regex"    .= regex ]
       JobTemplateParameterTypeVector size ty ->
         mobject
-          [ "vector" .= ty
+          [ "datetype"    .= String "vector"
+          , "vector"      .= ty
           , "vector_size" .= size ]
+      _ ->
+        mobject
+          [ "datatype" .= (String $
+              case jtpt of
+                JobTemplateParameterTypeBool               -> "bool"
+                JobTemplateParameterTypeDateTime           -> "date_time"
+                JobTemplateParameterTypeInt                -> "int"
+                JobTemplateParameterTypeReal               -> "real"
+                JobTemplateParameterTypeString             -> "string"
+                JobTemplateParameterTypeDataBlockName      -> "datablock"
+                JobTemplateParameterTypeDataBlockFieldName -> "datablock_field"
+                JobTemplateParameterTypeDataBlockKey       -> "datablock_key") ]
       
 instance FromJSON JobTemplateParameterType where
-  parseJSON (String s) =
-    pure $ case s of
-      "bool"            -> JobTemplateParameterTypeBool
-      "date_time"       -> JobTemplateParameterTypeDateTime
-      "int"             -> JobTemplateParameterTypeInt
-      "real"            -> JobTemplateParameterTypeReal 
-      "string"          -> JobTemplateParameterTypeString
-      "datablock"       -> JobTemplateParameterTypeDataBlockName
-      "datablock_field" -> JobTemplateParameterTypeDataBlockFieldName
-      "datablock_key"   -> JobTemplateParameterTypeDataBlockKey
-  parseJSON (Object v) =
-        (JobTemplateParameterTypeEnum <$> v .: "enum")
-    <|> (JobTemplateParameterTypeRegex <$> v .: "regex")
-    <|> (JobTemplateParameterTypeVector <$> v .: "vector_size"
-                                        <*> v .: "vector")
-  parseJSON a@(Array v) =
-    JobTemplateParameterTypeEnum <$> parseJSON a
+  parseJSON (Object v) = do
+    dt <- v .: "datatype" :: Parser Text
+    case dt of
+      "bool"            -> pure JobTemplateParameterTypeBool
+      "date_time"       -> pure JobTemplateParameterTypeDateTime
+      "int"             -> pure JobTemplateParameterTypeInt
+      "real"            -> pure JobTemplateParameterTypeReal 
+      "string"          -> pure JobTemplateParameterTypeString
+      "datablock"       -> pure JobTemplateParameterTypeDataBlockName
+      "datablock_field" -> pure JobTemplateParameterTypeDataBlockFieldName
+      "datablock_key"   -> pure JobTemplateParameterTypeDataBlockKey
+      "enum"            -> JobTemplateParameterTypeEnum <$> v .: "enum"
+      "regex"           -> JobTemplateParameterTypeRegex <$> v .: "regex"
+      "vector"          -> JobTemplateParameterTypeVector <$> v .:? "vector_size" <*> v .:  "vector"
 
 instance ToJSON JobTemplateParameter where
   toJSON jtp =
     mobject
-      [ "type"        .= String "job_template_parameter"
-      , "name"        .= jobTemplateParameterName jtp
-      , "description" .= jobTemplateParameterDescription jtp
-      , "default"     .= jobTemplateParameterDefault jtp
-      , "datatype"    .= jobTemplateParameterType jtp ]
+      [ "type"         .= String "job_template_parameter"
+      , "display_name" .= jobTemplateParameterDisplayName jtp
+      , "key_name"     .= jobTemplateParameterKeyName jtp
+      , "description"  .= jobTemplateParameterDescription jtp
+      , "default"      .= jobTemplateParameterDefault jtp
+      , "datatype"     .= jobTemplateParameterType jtp ]
 
 instance FromJSON JobTemplateParameter where
   parseJSON (Object v) = do
-    "job_template_parameter" <- v .: "type" :: Parser Text
-    JobTemplateParameter <$> v .: "name"
-                         <*> v .: "description"
-                         <*> v .: "default"
-                         <*> v .: "datatype"
+    "parameter" <- v .: "type" :: Parser Text
+    JobTemplateParameter <$> v .: "display_name"
+                         <*> v .: "key_name"
+                         <*> v .:? "description"
+                         <*> v .:? "default"
+                         <*> v .: "parameter_type"
 
 instance ToJSON JobParameterValidation where
   toJSON jpv =
