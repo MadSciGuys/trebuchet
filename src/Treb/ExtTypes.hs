@@ -170,7 +170,8 @@ data JobTemplate = JobTemplate
 type JobTemplateId = Int
 
 data JobTemplateParameter = JobTemplateParameter
-        { jobTemplateParameterName        :: Text
+        { jobTemplateParameterDisplayName :: Text
+        , jobTemplateParameterKeyName     :: Text
         , jobTemplateParameterDescription :: Maybe Text
         , jobTemplateParameterDefault     :: Maybe JobArgument
         , jobTemplateParameterType        :: JobTemplateParameterType }
