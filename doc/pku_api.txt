@@ -22,24 +22,6 @@ The currently supported implementation of the PKU API is called Trebuchet, after
 
 Analysis Interface:
 -------------------
-
-POST /cas_auth
-  TODO: Determine if the protocol should force the invariant that all requests return some JSON payload. In which case, this request would likely return an empty JSON object on success.
-  Description:
-    Authenticates a user via CAS. Establishes a session with the API service. Note that without SSL, the way this is handled is completely insecure. The "PKU-API-Session-Token" is sent in the clear and any malicious party could trivially act as the session owner.
-  Notes:
-    * Ideally, this serves as a temporary replacement for a more appropriate model, one that makes use of HTTP Negotiate and API session cookies. Could possibly make use of authorization interfaces like OAuth if we want to over-engineer this thing for "future endeavors" that will probably never be realized.
-  Client JSON Payload:
-    See 'cas_auth.json'
-  Server Response:
-    a) Status: 200
-       Meaning: Authentication has succeeded. Ticket was accepted by the CAS server.
-       Cookie: "PKU-API-Session-Token" is set to a cryptographically secure session identify.
-       * No payload *
-    b) Status: 403
-       Meaning: Authentication has failed. CAS server did not accept the ticket.
-       JSON Payload:
-         See 'client_error.json'
   
 POST /datablock/filter
   Description:
