@@ -39,6 +39,10 @@ executable trebuchet
                      , iso8601-time
                      , servant
                      , servant-server
+                     , wai
+                     , warp
+                     , directory
+                     , filepath
   hs-source-dirs:      src
   default-language:    Haskell2010
 
@@ -69,6 +73,12 @@ library
                      , scientific
                      , time
                      , iso8601-time
+                     , servant
+                     , servant-server
+                     , wai
+                     , warp
+                     , directory
+                     , filepath
   hs-source-dirs:      src
   default-language:    Haskell2010
   ghc-options: -O3
@@ -104,7 +114,12 @@ test-suite tests
                      , scientific
                      , time
                      , iso8601-time
+                     , servant
+                     , servant-server
+                     , wai
+                     , warp
                      , directory
+                     , filepath
   hs-source-dirs:      tests
   default-language:    Haskell2010
   ghc-options: -O3
