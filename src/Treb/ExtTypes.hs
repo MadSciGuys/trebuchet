@@ -22,10 +22,6 @@ import Data.Scientific (Scientific)
 import qualified Codec.MIME.Type as MIME
 import qualified Treb.Types as IT
 
--- CAS Authentication
-data CASAuth = CASAuth
-        { casAuthTicket :: Text }
-
 -- DataBlock
 data DataBlock = DataBlock
         { datablockId            :: DataBlockId
@@ -86,7 +82,7 @@ data DataBlockCreationResponse = DataBlockCreationResponse
         , datablockCreationResponseTimeout :: UTCTime }
         deriving (Eq, Show)
 
-type DataBlockId = Text
+type DataBlockId = Int
 
 -- | A reference to a datablock. Each datablock has at least one unique element
 --   of this type, elsewhere known as the "canonical name". 'AdHocName',
@@ -153,7 +149,7 @@ data JobStatus = JobSuccess { jobSuccessOutputDataBlockId :: DataBlockId }
                | JobRunning
         deriving (Eq, Show)
 
-type JobId = Text
+type JobId = Int
 
 data JobCreate = JobCreate
         { jobCreateName            :: Maybe Text
@@ -171,7 +167,7 @@ data JobTemplate = JobTemplate
         , jobTemplateParameterValidation :: Maybe JobParameterValidation }
         deriving (Eq, Show)
 
-type JobTemplateId = Text
+type JobTemplateId = Int
 
 data JobTemplateParameter = JobTemplateParameter
         { jobTemplateParameterName        :: Text

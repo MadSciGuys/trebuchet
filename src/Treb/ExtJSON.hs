@@ -20,17 +20,6 @@ import qualified Codec.MIME.Type as MIME
 mobject :: [Pair] -> Value
 mobject = object . filter ((/= Null) . snd)
 
-instance ToJSON CASAuth where
-  toJSON ca =
-    mobject
-      [ "type"       .= String "cas_auth"
-      , "cas_ticket" .= casAuthTicket ca ]
-
-instance FromJSON CASAuth where
-  parseJSON (Object v) = do
-    "cas_auth" <- v .: "type" :: Parser Text
-    CASAuth <$> v .: "cas_ticket"
-
 instance ToJSON DataBlock where
     toJSON db =
       mobject
@@ -112,8 +101,8 @@ instance ToJSON DataBlockFieldType where
         DBBinary mime ->
           object [ "binary" .= mime ]
         DBVector size ft ->
-          object [ "vector"      .= ft
-                 , "vector_size" .= size ]
+          mobject [ "vector"      .= ft
+                  , "vector_size" .= size ]
           
 instance FromJSON DataBlockFieldType where
     parseJSON (String dbftStr) =
