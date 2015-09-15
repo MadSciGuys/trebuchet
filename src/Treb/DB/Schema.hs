@@ -1,5 +1,5 @@
 {-# LANGUAGE QuasiQuotes, OverloadedStrings, RankNTypes, FlexibleContexts #-}
-module Schema where
+module Treb.DB.Schema where
 
 import qualified Hasql as H
 import qualified Hasql.Postgres as HP
@@ -7,6 +7,10 @@ import Control.Monad.Trans.Control
 
 type SchemaInit = forall s. H.Tx HP.Postgres s ()
 
+-- Configure --
+connSettings :: HP.Settings
+connSettings = HP.ParamSettings "10.37.49.24" 5432 "mswan" "mswan" "trebuchet"
+    
 main :: IO ()
 main = do
   pool <- getPool
@@ -14,9 +18,6 @@ main = do
   print x
   return ()
   where
-    connSettings :: HP.Settings
-    connSettings = HP.ParamSettings "10.37.49.24" 5432 "mswan" "mswan" "trebuchet"
-    
     poolSettings :: Maybe H.PoolSettings
     poolSettings = H.poolSettings 6 30
     
