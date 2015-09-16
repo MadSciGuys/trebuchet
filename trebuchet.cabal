@@ -30,7 +30,7 @@ executable trebuchet
                      , protoblob
                      , protodb
                      , mtl
-                     , regex-tdfa
+                     , regex-tdfa >=1.2.0
                      , base64-bytestring
                      , protocol-buffers
                      , mime
@@ -43,6 +43,12 @@ executable trebuchet
                      , warp
                      , directory
                      , filepath
+                     , hasql
+                     , hasql-postgres
+                     , monad-control
+                     , either
+                     , transformers
+                     , hinotify
   hs-source-dirs:      src
   default-language:    Haskell2010
 
@@ -79,6 +85,8 @@ library
                      , warp
                      , directory
                      , filepath
+                     , hasql
+                     , hasql-postgres
   hs-source-dirs:      src
   default-language:    Haskell2010
   ghc-options: -O3
@@ -120,6 +128,8 @@ test-suite tests
                      , warp
                      , directory
                      , filepath
+                     , hasql
+                     , hasql-postgres
   hs-source-dirs:      tests
   default-language:    Haskell2010
   ghc-options: -O3

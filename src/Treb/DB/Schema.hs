@@ -10,6 +10,12 @@ type SchemaInit = forall s. H.Tx HP.Postgres s ()
 -- Configure --
 connSettings :: HP.Settings
 connSettings = HP.ParamSettings "10.37.49.24" 5432 "mswan" "mswan" "trebuchet"
+
+poolSettings :: Maybe H.PoolSettings
+poolSettings = H.poolSettings 6 30
+
+getPool :: IO (H.Pool HP.Postgres)
+getPool = maybe (fail "Pool settings invalid!") (H.acquirePool connSettings) poolSettings
     
 main :: IO ()
 main = do
@@ -17,12 +23,6 @@ main = do
   x <- H.session pool schemaInit
   print x
   return ()
-  where
-    poolSettings :: Maybe H.PoolSettings
-    poolSettings = H.poolSettings 6 30
-    
-    getPool :: IO (H.Pool HP.Postgres)
-    getPool = maybe (fail "Pool settings invalid!") (H.acquirePool connSettings) poolSettings
 
 schemaInit :: (MonadBaseControl IO m) => H.Session HP.Postgres m ()
 schemaInit = do
@@ -57,8 +57,8 @@ job = mapM_ H.unitEx
       , "template_id"         bigint not null
       , "name"                varchar
       , "status"              job_status_t not null default 'running'
-      , "start_time"          timestamp not null
-      , "end_time"            timestamp
+      , "start_time"          timestamptz not null
+      , "end_time"            timestamptz
       , "output_datablock_id" bigint
       , "failure_reason"      varchar ) |] ]
 
@@ -85,7 +85,7 @@ job_argument = mapM_ H.unitEx
       , "value_string"   varchar
       , "value_int"      bigint
       , "value_real"     double precision
-      , "value_datetime" timestamp
+      , "value_datetime" timestamptz
       , "value_vector"   bigint[] ) |] ]
 
 input_datablock :: SchemaInit
