@@ -9,13 +9,12 @@ module Main where
 import Treb.ExtTypes
 import Treb.ExtJSON
 import Treb.DB.Schema (getPool)
-import Treb.DB.Statements
 
 import qualified Hasql.Postgres as HP
 import qualified Hasql as H
 import qualified Data.Map as M
 import qualified Data.ByteString.Lazy as B
-import System.Directory (getDirectoryContents, doesFileExist)
+import System.Directory
 import Data.Aeson
 import Data.Proxy
 import Network.Wai
@@ -36,6 +35,8 @@ import Data.Text (Text)
 import Control.Concurrent
 import Servant
 import Servant.Server
+import Control.Exception
+import System.IO.Error
 
 ---- Servant API Layout Types ----
 type TrebApi = JobTemplateAllH :<|> JobAllH
@@ -148,7 +149,12 @@ trebEnvGetParamType env jtId paramKeyName =
 getJobTemplates :: FilePath -> IO [JobTemplate]
 getJobTemplates templateDir = do
   -- Get a list of job template file names
-  templateFiles' <- getDirectoryContents templateDir
+  templateFiles' <- getDirectoryContents templateDir `catch` \e ->
+    if isDoesNotExistError e then do
+      fullTemplateDir <- makeAbsolute templateDir
+      error $ "Job template specification directory '" ++ fullTemplateDir ++ "' does not exist."
+    else
+      throw e
   templateFiles <- filterM doesFileExist $ map (templateDir </>) templateFiles'
   -- Get a list of decoded job templates
   jobTemplates <- mapM (fmap eitherDecode . B.readFile) templateFiles
