@@ -49,6 +49,8 @@ executable trebuchet
                      , either
                      , transformers
                      , hinotify
+                     , mysql-simple
+                     , cookie
   hs-source-dirs:      src
   default-language:    Haskell2010
 

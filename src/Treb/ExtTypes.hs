@@ -264,3 +264,7 @@ data DataPipeline = DataPipeline
         deriving (Eq, Show)
 
 type DataPipelineId = Text
+
+-- Errors
+data ClientError = ClientError ClientErrorCode Text
+data ClientErrorCode = CEMissingSessionCookie | CEInvalidSessionCookie

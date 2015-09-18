@@ -641,3 +641,14 @@ instance ToJSON DataBlockRecordAtom where
 
 instance FromJSON DataBlockRecordAtom where
   parseJSON (String s) = DataBlockRecordAtom <$> pure s
+
+instance ToJSON ClientError where
+  toJSON (ClientError code msg) =
+    mobject
+      [ "type"          .= String "client_error"
+      , "error_code"    .= code
+      , "error_message" .= msg ]
+
+instance ToJSON ClientErrorCode where
+  toJSON CEMissingSessionCookie = String "missing_session_cookie"
+  toJSON CEInvalidSessionCookie = String "invalid_session_cookie"

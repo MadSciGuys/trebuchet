@@ -14,6 +14,8 @@ import qualified Hasql.Postgres as HP
 import qualified Hasql as H
 import qualified Data.Map as M
 import qualified Data.ByteString.Lazy as B
+import qualified Database.MySQL.Simple as MySQL
+import qualified Database.MySQL.Simple.Types as MySQL
 import System.Directory
 import Data.Aeson
 import Data.Proxy
@@ -37,6 +39,9 @@ import Servant
 import Servant.Server
 import Control.Exception
 import System.IO.Error
+import Data.List (find)
+import Web.Cookie
+import Data.Text.Encoding
 
 ---- Servant API Layout Types ----
 type TrebApi = JobTemplateAllH :<|> JobAllH
@@ -56,9 +61,12 @@ data TrebEnv = TrebEnv
   , trebEnvJobTemplatesTVar :: TVar (Maybe [JobTemplate])
     -- ^ This TVar is written to upon inotify events in the job templates
     -- directory.
+  , trebEnvDrupalMySQLConn :: MySQL.Connection
+    -- ^ This is intended for authentication.
   }
 
-type TrebServer layout = ServerT layout (StateT TrebEnv (EitherT ServantErr IO))
+type TrebServerBase = StateT TrebEnv (EitherT ServantErr IO)
+type TrebServer layout = ServerT layout TrebServerBase
 
 ---- Important Functions ----
 main :: IO ()
@@ -74,7 +82,10 @@ main = do
   env <- getEnv
 
   ---- Run ----
-  run 3000 $ serve trebApiProxy $ server env
+  runSettings trebWarpSettings $ serve trebApiProxy $ server env
+
+trebWarpSettings :: Settings
+trebWarpSettings = setBeforeMainLoop (putStrLn "Trebuchet is ready.") defaultSettings
 
 server :: TrebEnv -> Server TrebApi
 server = flip enter trebServer . evalStateTLNat
@@ -123,19 +134,33 @@ getEnv = do
   jobTemplatesTVar <- newTVarIO Nothing
 
   -- Begin watching job_templates directory and automatically update the internal job templates accordingly
+  putStrLn "Initializing event watchers for job templates directory."
   inotify <- initINotify
   addWatch inotify [Create, Delete, Modify, MoveIn, MoveOut] "job_templates" $ \ _ -> do
     jobTemplates <- getJobTemplates "job_templates"
     atomically $ swapTVar jobTemplatesTVar (Just jobTemplates)
     putStrLn "Job Templates Updated."
+  putStrLn "> Done."
   
   -- Get the initial job templates
+  putStrLn "Parsing job templates."
   jobTemplates <- getJobTemplates "job_templates"
+  putStrLn "> Done."
+
+  -- Connect to the Drupal/OpenAtrium MySQL database for authentication and authorization
+  putStrLn "Connecting to Drupal/OpenAtrium MySQL database."
+  drupalMySQLConn <- MySQL.connect $ MySQL.defaultConnectInfo
+    { MySQL.connectHost     = "atrium-legacy-compat.cku7crzxi1iv.us-east-1.rds.amazonaws.com"
+    , MySQL.connectUser     = "atrium_app_pku"
+    , MySQL.connectPassword = "!by8ktk+L$4B"
+    , MySQL.connectDatabase = "atrium" }
+  putStrLn "> Done."
 
   -- Construct the Trebuchet environment
   return $ TrebEnv
-    { trebEnvJobTemplates = jobTemplates
-    , trebEnvJobTemplatesTVar = jobTemplatesTVar }
+    { trebEnvJobTemplates     = jobTemplates
+    , trebEnvJobTemplatesTVar = jobTemplatesTVar
+    , trebEnvDrupalMySQLConn  = drupalMySQLConn }
 
 trebEnvGetJobTemplate :: TrebEnv -> JobTemplateId -> Maybe JobTemplate
 trebEnvGetJobTemplate = flip M.lookup . M.fromList . map (\jt -> (jobTemplateId jt, jt)) . trebEnvJobTemplates
@@ -180,3 +205,24 @@ setTrebEnvJobTemplatesTVar env jts = env { trebEnvJobTemplatesTVar = jts }
 
 trebApiProxy :: Proxy TrebApi
 trebApiProxy = Proxy
+
+
+---- WIP ----
+getDrupalMySQLConn :: TrebServerBase MySQL.Connection
+getDrupalMySQLConn = trebEnvDrupalMySQLConn <$> get 
+
+drupalAuth :: Text -> TrebServerBase Text
+drupalAuth cookies = do
+  let sessionCookie = fmap snd $ find ((== "SESS249b7ba79335e5fe3b5934ff07174a20") . fst) $ parseCookies $ encodeUtf8 cookies
+  conn <- getDrupalMySQLConn
+  usernames <- maybe
+    (lift $ left $ err403 { errBody = encode $ ClientError CEMissingSessionCookie "Drupal session cookie is not found." })
+    (liftIO . MySQL.query conn "SELECT username FROM atrium_users INNER JOIN attrium_sessions ON atrium_users.uid = atrium_sessions.uid WHERE atrium_sessions.sid = ?" . MySQL.Only)
+    sessionCookie
+  case usernames of
+    [] ->
+      lift $ left $ err403 { errBody = encode $ ClientError CEInvalidSessionCookie "Drupal session cookie is found but either invalid or expired." }
+    [MySQL.Only username] ->
+      return username
+    _ ->
+      lift $ left err500 { errBody = "SQL query invalid. Returned list of usernames has more than one element." }
