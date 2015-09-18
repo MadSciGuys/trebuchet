@@ -152,7 +152,10 @@ getJobTemplates templateDir = do
   templateFiles' <- getDirectoryContents templateDir `catch` \e ->
     if isDoesNotExistError e then do
       fullTemplateDir <- makeAbsolute templateDir
-      error $ "Job template specification directory '" ++ fullTemplateDir ++ "' does not exist."
+      putStrLn $ "ERROR: Job template specification directory '" ++ fullTemplateDir ++ "' does not exist."
+      createDirectoryIfMissing False fullTemplateDir
+      putStrLn $ "Made new directory '" ++ fullTemplateDir ++ "'."
+      return []
     else
       throw e
   templateFiles <- filterM doesFileExist $ map (templateDir </>) templateFiles'
