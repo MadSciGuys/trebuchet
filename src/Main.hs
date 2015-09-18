@@ -44,7 +44,7 @@ import Web.Cookie
 import Data.Text.Encoding
 
 ---- Servant API Layout Types ----
-type TrebApi = JobTemplateAllH :<|> JobAllH
+type TrebApi = JobTemplateAllH :<|> JobAllH :<|> DemoAuthH
 
 type JobTemplateAllH =
   "job_template" :> "all"
@@ -53,6 +53,11 @@ type JobTemplateAllH =
 type JobAllH =
   "job" :> "all"
     :> Get '[JSON] [Job]
+
+type DemoAuthH =
+  "current_username"
+    :> Header "Cookie" Text
+    :> Get '[JSON] Value
 
 ---- Other Servant Related Types ----
 data TrebEnv = TrebEnv
@@ -63,6 +68,7 @@ data TrebEnv = TrebEnv
     -- directory.
   , trebEnvDrupalMySQLConn :: MySQL.Connection
     -- ^ This is intended for authentication.
+  , trebEnvUsername :: Maybe Text -- ^ Temporary. To be replaced by trebEnvUser
   }
 
 type TrebServerBase = StateT TrebEnv (EitherT ServantErr IO)
@@ -93,6 +99,7 @@ server = flip enter trebServer . evalStateTLNat
 trebServer :: TrebServer TrebApi
 trebServer = wrapHandler jobTemplateAllH
         :<|> wrapHandler jobAllH
+        :<|> (wrapHandler . demoAuthH)
   where
     -- | Begin all HTTP requests with a common pre-handler action and follow
     -- all HTTP requests with a common post-handler action.
@@ -124,6 +131,11 @@ trebServer = wrapHandler jobTemplateAllH
     jobAllH = todoHandler
     -- ^ It is going to look something like this:
     --     jobs <- H.session (initDbPool st) getJobs
+    
+    demoAuthH :: TrebServer DemoAuthH
+    demoAuthH = drupalAuth $ do
+      username <- getUsername
+      return $ object [ "username" .= username ]
 
     ---- Helpers ----
     todoHandler = lift $ left $ err501
@@ -160,7 +172,8 @@ getEnv = do
   return $ TrebEnv
     { trebEnvJobTemplates     = jobTemplates
     , trebEnvJobTemplatesTVar = jobTemplatesTVar
-    , trebEnvDrupalMySQLConn  = drupalMySQLConn }
+    , trebEnvDrupalMySQLConn  = drupalMySQLConn
+    , trebEnvUsername         = Nothing }
 
 trebEnvGetJobTemplate :: TrebEnv -> JobTemplateId -> Maybe JobTemplate
 trebEnvGetJobTemplate = flip M.lookup . M.fromList . map (\jt -> (jobTemplateId jt, jt)) . trebEnvJobTemplates
@@ -196,24 +209,9 @@ getJobTemplates templateDir = do
       putStrLn $ "ERROR: Failed to parse job template JSON: " <> file <> "\n\n" <> error
       return Nothing
 
----- Helper Functions ----
-setTrebEnvJobTemplates :: TrebEnv -> [JobTemplate] -> TrebEnv
-setTrebEnvJobTemplates env jts = env { trebEnvJobTemplates = jts }
-
-setTrebEnvJobTemplatesTVar :: TrebEnv -> TVar (Maybe [JobTemplate]) -> TrebEnv
-setTrebEnvJobTemplatesTVar env jts = env { trebEnvJobTemplatesTVar = jts }
-
-trebApiProxy :: Proxy TrebApi
-trebApiProxy = Proxy
-
-
----- WIP ----
-getDrupalMySQLConn :: TrebServerBase MySQL.Connection
-getDrupalMySQLConn = trebEnvDrupalMySQLConn <$> get 
-
-drupalAuth :: Text -> TrebServerBase Text
-drupalAuth cookies = do
-  let sessionCookie = fmap snd $ find ((== "SESS249b7ba79335e5fe3b5934ff07174a20") . fst) $ parseCookies $ encodeUtf8 cookies
+drupalAuth :: TrebServerBase a -> Maybe Text -> TrebServerBase a
+drupalAuth action cookies = do
+  let sessionCookie = fmap (fmap snd . find ((== "SESS249b7ba79335e5fe3b5934ff07174a20") . fst) . parseCookies . encodeUtf8) cookies
   conn <- getDrupalMySQLConn
   usernames <- maybe
     (lift $ left $ err403 { errBody = encode $ ClientError CEMissingSessionCookie "Drupal session cookie is not found." })
@@ -222,7 +220,29 @@ drupalAuth cookies = do
   case usernames of
     [] ->
       lift $ left $ err403 { errBody = encode $ ClientError CEInvalidSessionCookie "Drupal session cookie is found but either invalid or expired." }
-    [MySQL.Only username] ->
-      return username
+    [MySQL.Only username] -> do
+      modify (flip setTrebEnvUsername $ Just username)
+      ret <- action
+      modify (flip setTrebEnvUsername Nothing)
+      return ret
     _ ->
       lift $ left err500 { errBody = "SQL query invalid. Returned list of usernames has more than one element." }
+
+---- Helper Functions ----
+setTrebEnvJobTemplates :: TrebEnv -> [JobTemplate] -> TrebEnv
+setTrebEnvJobTemplates env jts = env { trebEnvJobTemplates = jts }
+
+setTrebEnvJobTemplatesTVar :: TrebEnv -> TVar (Maybe [JobTemplate]) -> TrebEnv
+setTrebEnvJobTemplatesTVar env jts = env { trebEnvJobTemplatesTVar = jts }
+
+setTrebEnvUsername :: TrebEnv -> Maybe Text -> TrebEnv
+setTrebEnvUsername env username = env { trebEnvUsername = username }
+
+getDrupalMySQLConn :: TrebServerBase MySQL.Connection
+getDrupalMySQLConn = trebEnvDrupalMySQLConn <$> get 
+
+getUsername :: TrebServerBase Text
+getUsername = fromJust <$> trebEnvUsername <$> get 
+
+trebApiProxy :: Proxy TrebApi
+trebApiProxy = Proxy
