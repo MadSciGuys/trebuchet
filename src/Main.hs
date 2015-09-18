@@ -215,7 +215,7 @@ drupalAuth action cookies = do
   conn <- getDrupalMySQLConn
   usernames <- maybe
     (lift $ left $ err403 { errBody = encode $ ClientError CEMissingSessionCookie "Drupal session cookie is not found." })
-    (liftIO . MySQL.query conn "SELECT username FROM atrium_users INNER JOIN attrium_sessions ON atrium_users.uid = atrium_sessions.uid WHERE atrium_sessions.sid = ?" . MySQL.Only)
+    (liftIO . MySQL.query conn "SELECT name FROM atrium_users INNER JOIN atrium_sessions ON atrium_users.uid = atrium_sessions.uid WHERE atrium_sessions.sid = ?" . MySQL.Only)
     sessionCookie
   case usernames of
     [] ->
