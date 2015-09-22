@@ -78,12 +78,6 @@ type TrebServer layout = ServerT layout TrebServerBase
 main :: IO ()
 main = do
   ---- Initialize ----
-  -- Read in job templates from JSON files in job_templates directory.
-  jobTemplates <- getJobTemplates "job_templates"
-
-  -- Create a pool of connections to Postgres
-  pool <- getPool
-
   -- Beget the initial Trebuchet environment state via IO
   env <- getEnv
 
@@ -142,6 +136,9 @@ trebServer = wrapHandler jobTemplateAllH
 
 getEnv :: IO TrebEnv
 getEnv = do
+  -- Create a pool of connections to Postgres
+  pool <- getPool
+
   -- Create TVar for updating the job templates available to HTTP request handlers
   jobTemplatesTVar <- newTVarIO Nothing
 
