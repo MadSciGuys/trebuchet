@@ -21,6 +21,7 @@ import Data.Aeson
 import Data.Proxy
 import Network.Wai
 import Network.Wai.Handler.Warp
+import Network.Wai.Handler.WarpTLS
 import Data.Maybe
 import Data.Monoid
 import System.FilePath
@@ -112,7 +113,17 @@ main = do
   env <- getEnv
 
   ---- Run ----
-  runSettings (flip setPort trebWarpSettings $ confPort $ trebEnvConfig env) (serve trebApiProxy $ server env)
+  let xor a b = not (a && b) && (a || b)
+  let cert = confSSLCertPath $ trebEnvConfig $ env
+  let certKey = confSSLCertKeyPath $ trebEnvConfig $ env
+
+  if isJust cert `xor` isJust certKey then do
+    putStrLn "ERROR: SSL requires both --ssl-certificate and --ssl-certificate-key to be set."
+  else if isJust cert && isJust certKey then
+    runTLS (tlsSettings (fromJust cert) (fromJust certKey)) (flip setPort trebWarpSettings $ confPort $ trebEnvConfig env) (serve trebApiProxy $ server env)
+  else
+    runSettings (flip setPort trebWarpSettings $ confPort $ trebEnvConfig env) (serve trebApiProxy $ server env)
+  
 
 trebWarpSettings :: Settings
 trebWarpSettings = setBeforeMainLoop (putStrLn "Trebuchet is ready.") defaultSettings

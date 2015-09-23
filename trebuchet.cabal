@@ -41,6 +41,7 @@ executable trebuchet
                      , servant-server
                      , wai
                      , warp
+                     , warp-tls
                      , directory
                      , filepath
                      , hasql
