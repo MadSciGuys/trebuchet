@@ -33,7 +33,7 @@ import Control.Monad.IO.Class
 import Control.Monad.State.Class
 import System.INotify
 import Control.Monad.State.Lazy
-import Data.Text (Text)
+import Data.Text (Text, pack)
 import Control.Concurrent
 import Servant
 import Servant.Server
@@ -42,6 +42,9 @@ import System.IO.Error
 import Data.List (find)
 import Web.Cookie
 import Data.Text.Encoding
+import System.Environment (getArgs)
+import System.Exit
+import Text.Read (readEither)
 
 ---- Servant API Layout Types ----
 type TrebApi = JobTemplateAllH :<|> JobAllH :<|> DemoAuthH
@@ -66,10 +69,37 @@ data TrebEnv = TrebEnv
   , trebEnvJobTemplatesTVar :: TVar (Maybe [JobTemplate])
     -- ^ This TVar is written to upon inotify events in the job templates
     -- directory.
-  , trebEnvDrupalMySQLConn :: MySQL.Connection
+  , trebEnvDrupalMySQLConn :: Maybe MySQL.Connection
     -- ^ This is intended for authentication.
   , trebEnvUsername :: Maybe Text -- ^ Temporary. To be replaced by trebEnvUser
+  , trebEnvConfig :: TrebConfig
   }
+
+data TrebConfig = TrebConfig
+  { confDebugMode      :: Bool
+  , confSSLCertPath    :: Maybe String
+  , confSSLCertKeyPath :: Maybe String
+  , confJobTemplateDir :: String
+  , confPort           :: Int
+  , confOAHost         :: Maybe String
+  , confOAPort         :: Maybe String
+  , confOADatabase     :: Maybe String
+  , confOAUsername     :: Maybe String
+  , confOAPassword     :: Maybe String
+  , confOADomain       :: Maybe String }
+
+defaultTrebConfig = TrebConfig
+    { confDebugMode      = False
+    , confSSLCertPath    = Nothing
+    , confSSLCertKeyPath = Nothing
+    , confJobTemplateDir = "job_templates"
+    , confPort           = 3000
+    , confOAHost         = Nothing
+    , confOAPort         = Nothing
+    , confOADatabase     = Nothing
+    , confOAUsername     = Nothing
+    , confOAPassword     = Nothing
+    , confOADomain       = Nothing }
 
 type TrebServerBase = StateT TrebEnv (EitherT ServantErr IO)
 type TrebServer layout = ServerT layout TrebServerBase
@@ -82,7 +112,7 @@ main = do
   env <- getEnv
 
   ---- Run ----
-  runSettings trebWarpSettings $ serve trebApiProxy $ server env
+  runSettings (flip setPort trebWarpSettings $ confPort $ trebEnvConfig env) (serve trebApiProxy $ server env)
 
 trebWarpSettings :: Settings
 trebWarpSettings = setBeforeMainLoop (putStrLn "Trebuchet is ready.") defaultSettings
@@ -139,6 +169,14 @@ getEnv = do
   -- Create a pool of connections to Postgres
   pool <- getPool
 
+  -- Process arguments
+  args <- getArgs
+
+  conf <- either
+    (\e -> putStrLn e >> exitFailure)
+    return
+    (processArgs defaultTrebConfig args)
+
   -- Create TVar for updating the job templates available to HTTP request handlers
   jobTemplatesTVar <- newTVarIO Nothing
 
@@ -157,20 +195,59 @@ getEnv = do
   putStrLn "> Done."
 
   -- Connect to the Drupal/OpenAtrium MySQL database for authentication and authorization
-  putStrLn "Connecting to Drupal/OpenAtrium MySQL database."
-  drupalMySQLConn <- MySQL.connect $ MySQL.defaultConnectInfo
-    { MySQL.connectHost     = "atrium-legacy-compat.cku7crzxi1iv.us-east-1.rds.amazonaws.com"
-    , MySQL.connectUser     = "atrium_app_pku"
-    , MySQL.connectPassword = "!by8ktk+L$4B"
-    , MySQL.connectDatabase = "atrium" }
-  putStrLn "> Done."
+  drupalMySQLConn <-
+    if confDebugMode conf then
+      return Nothing
+    else do
+      putStrLn "Connecting to Drupal/OpenAtrium MySQL database."
+      port <- maybe
+        (putStrLn "ERROR: Port to OpenAtrium database not given." *> pure Nothing)
+        (catchAny (const $ putStrLn "ERROR: Failed to read the OpenAtrium port argument." *> pure Nothing) . return . read)
+        (confOAPort conf)
+      maybe
+        (putStrLn "> Failure." >> exitFailure)
+        (\(h, po, u, pa, db) ->
+          fmap Just (MySQL.connect $ MySQL.defaultConnectInfo
+            { MySQL.connectHost     = h
+            , MySQL.connectPort     = po
+            , MySQL.connectUser     = u
+            , MySQL.connectPassword = pa
+            , MySQL.connectDatabase = db })
+          <* putStrLn "> Done.") $
+        (,,,,) <$> confOAHost conf
+               <*> port
+               <*> confOAUsername conf
+               <*> confOAPassword conf
+               <*> confOADatabase conf
 
   -- Construct the Trebuchet environment
   return $ TrebEnv
     { trebEnvJobTemplates     = jobTemplates
     , trebEnvJobTemplatesTVar = jobTemplatesTVar
     , trebEnvDrupalMySQLConn  = drupalMySQLConn
-    , trebEnvUsername         = Nothing }
+    , trebEnvUsername         = Nothing
+    , trebEnvConfig           = conf }
+  where
+    catchAny :: (SomeException -> IO a) -> IO a -> IO a
+    catchAny = flip catch
+
+    processArgs :: TrebConfig -> [String] -> Either String TrebConfig
+    processArgs conf [] = Right conf
+    processArgs conf (x  :xs) | x == "-d" || x == "--debug"                  = processArgs (conf { confDebugMode      = True })   xs
+    processArgs conf (x:y:xs) | x == "-c" || x == "--ssl-certificate"        = processArgs (conf { confSSLCertPath    = Just y }) xs
+    processArgs conf (x:y:xs) | x == "-k" || x == "--ssl-certificate-key"    = processArgs (conf { confSSLCertKeyPath = Just y }) xs
+    processArgs conf (x:y:xs) | x == "-t" || x == "--job-template-directory" = processArgs (conf { confJobTemplateDir = y })      xs
+    processArgs conf (x:y:xs) | x == "-p" || x == "--port"                   = either
+                                                                                 Left
+                                                                                 (\p -> processArgs (conf { confPort  = p })      xs)
+                                                                                 (readEither y)
+    processArgs conf (x:y:xs) | x == "-H" || x == "--oa-host"                = processArgs (conf { confOAHost         = Just y }) xs
+    processArgs conf (x:y:xs) | x == "-P" || x == "--oa-port"                = processArgs (conf { confOAPort         = Just y }) xs
+    processArgs conf (x:y:xs) | x == "-D" || x == "--oa-database"            = processArgs (conf { confOADatabase     = Just y }) xs
+    processArgs conf (x:y:xs) | x == "-U" || x == "--oa-username"            = processArgs (conf { confOAUsername     = Just y }) xs
+    processArgs conf (x:y:xs) | x == "-P" || x == "--oa-password"            = processArgs (conf { confOAPassword     = Just y }) xs
+    processArgs conf (x:y:xs) | x == "-C" || x == "--oa-cookie-domain"       = processArgs (conf { confOADomain       = Just y }) xs
+    processArgs conf (x:_) = Left $ "ERROR: Invalid command-line argument \'" <> x <> "\'."
 
 trebEnvGetJobTemplate :: TrebEnv -> JobTemplateId -> Maybe JobTemplate
 trebEnvGetJobTemplate = flip M.lookup . M.fromList . map (\jt -> (jobTemplateId jt, jt)) . trebEnvJobTemplates
@@ -236,7 +313,7 @@ setTrebEnvUsername :: TrebEnv -> Maybe Text -> TrebEnv
 setTrebEnvUsername env username = env { trebEnvUsername = username }
 
 getDrupalMySQLConn :: TrebServerBase MySQL.Connection
-getDrupalMySQLConn = trebEnvDrupalMySQLConn <$> get 
+getDrupalMySQLConn = fromJust <$> trebEnvDrupalMySQLConn <$> get 
 
 getUsername :: TrebServerBase Text
 getUsername = fromJust <$> trebEnvUsername <$> get 
