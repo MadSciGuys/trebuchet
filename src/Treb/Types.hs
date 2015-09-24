@@ -53,6 +53,9 @@ import ProtoDB.Types
 
 import System.Posix.Types
 
+import qualified Database.MySQL.Simple as MySQL
+import qualified Database.MySQL.Simple.Types as MySQL
+
 import Treb.Filter
 import Treb.BadRegex
 
@@ -521,6 +524,39 @@ data Job = Job {
     -- | Job results. 'Nothing' if the job is still executing.
   , jobResult     :: Maybe [DataBlockName]
   } deriving (Eq, Show)
+
+data TrebEnv = TrebEnv
+  { trebEnvJobTemplates :: [JobTemplate]
+    -- ^ This is the current set of acknowledged job templates.
+  , trebEnvJobTemplatesTVar :: TVar (Maybe [JobTemplate])
+    -- ^ This TVar is written to upon inotify events in the job templates
+    -- directory.
+  , trebEnvDrupalMySQLConn :: Maybe MySQL.Connection
+    -- ^ This is intended for authentication.
+  , trebEnvUsername :: Maybe T.Text -- ^ Temporary. To be replaced by trebEnvUser
+  , trebEnvConfig :: TrebConfig
+  }
+
+data TrebConfig = TrebConfig
+  { confDebugMode      :: Bool
+  , confPort           :: Int
+  , confJobTemplateDir :: String
+  , confSSLCertPath    :: Maybe String
+  , confSSLCertKeyPath :: Maybe String
+  , confOAHost         :: Maybe String
+  , confOAPort         :: Maybe String
+  , confOADatabase     :: Maybe String
+  , confOAUsername     :: Maybe String
+  , confOAPassword     :: Maybe String
+  , confOADomain       :: Maybe String
+  , confPGHost         :: Maybe String
+  , confPGPort         :: Maybe String
+  , confPGUsername     :: Maybe String
+  , confPGPassword     :: Maybe String
+  , confPGDatabase     :: Maybe String
+  , confPGPoolMax      :: Maybe String
+  , confPGConnLifetime :: Maybe String }
+
 
 type JobTemplateMap = MVar (M.Map T.Text (MVar JobTemplate))
 

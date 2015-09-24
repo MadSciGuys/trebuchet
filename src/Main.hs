@@ -6,9 +6,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 module Main where
 
-import Treb.ExtTypes
-import Treb.ExtJSON
-
 import qualified Hasql.Postgres as HP
 import qualified Hasql as H
 import qualified Data.Map as M
@@ -49,6 +46,8 @@ import Text.Read (readEither)
 import Data.Bool
 import Data.Bits (xor)
 import Treb.Combinators
+import Treb.Config
+import Treb.Types
 
 ---- Servant API Layout Types ----
 type TrebApi = JobTemplateAllH :<|> JobAllH :<|> DemoAuthH
@@ -67,38 +66,6 @@ type DemoAuthH =
     :> Get '[JSON] Value
 
 ---- Other Servant Related Types ----
-data TrebEnv = TrebEnv
-  { trebEnvJobTemplates :: [JobTemplate]
-    -- ^ This is the current set of acknowledged job templates.
-  , trebEnvJobTemplatesTVar :: TVar (Maybe [JobTemplate])
-    -- ^ This TVar is written to upon inotify events in the job templates
-    -- directory.
-  , trebEnvDrupalMySQLConn :: Maybe MySQL.Connection
-    -- ^ This is intended for authentication.
-  , trebEnvUsername :: Maybe Text -- ^ Temporary. To be replaced by trebEnvUser
-  , trebEnvConfig :: TrebConfig
-  }
-
-data TrebConfig = TrebConfig
-  { confDebugMode      :: Bool
-  , confPort           :: Int
-  , confJobTemplateDir :: String
-  , confSSLCertPath    :: Maybe String
-  , confSSLCertKeyPath :: Maybe String
-  , confOAHost         :: Maybe String
-  , confOAPort         :: Maybe String
-  , confOADatabase     :: Maybe String
-  , confOAUsername     :: Maybe String
-  , confOAPassword     :: Maybe String
-  , confOADomain       :: Maybe String
-  , confPGHost         :: Maybe String
-  , confPGPort         :: Maybe String
-  , confPGUsername     :: Maybe String
-  , confPGPassword     :: Maybe String
-  , confPGDatabase     :: Maybe String
-  , confPGPoolMax      :: Maybe String
-  , confPGConnLifetime :: Maybe String }
-
 defaultTrebConfig = TrebConfig
     { confDebugMode      = False
     , confPort           = 3000
@@ -123,9 +90,6 @@ type TrebServerBase = StateT TrebEnv (EitherT ServantErr IO)
 type TrebServer layout = ServerT layout TrebServerBase
 
 ---- Important Functions ----
-withTrebEnv :: (TrebEnv -> IO ()) -> IO ()
-withTrebEnv f = eitherT (putStrLn . ("ERROR: " <>)) f getEnv
-
 main :: IO ()
 main = do
   ---- Initialize ----
@@ -208,31 +172,6 @@ trebEnvGetParamType env jtId paramKeyName =
   M.lookup paramKeyName $ fromMaybe M.empty $ do
     jt <- trebEnvGetJobTemplate env jtId
     return $ M.fromList $ map (\p -> (jobTemplateParameterKeyName p, jobTemplateParameterType p)) $ jobTemplateParameters jt
-
-getJobTemplates :: FilePath -> IO [JobTemplate]
-getJobTemplates templateDir = do
-  -- Get a list of job template file names
-  templateFiles' <- getDirectoryContents templateDir `catch` \e ->
-    if isDoesNotExistError e then do
-      fullTemplateDir <- makeAbsolute templateDir
-      putStrLn $ "ERROR: Job template specification directory '" ++ fullTemplateDir ++ "' does not exist."
-      createDirectoryIfMissing False fullTemplateDir
-      putStrLn $ "Made new directory '" ++ fullTemplateDir ++ "'."
-      return []
-    else
-      throw e
-  templateFiles <- filterM doesFileExist $ map (templateDir </>) templateFiles'
-  -- Get a list of decoded job templates
-  jobTemplates <- mapM (fmap eitherDecode . B.readFile) templateFiles
-  -- Print an error on each failure to decode a job template.
-  let parseResults = [ either (Left . ((,) f)) Right t | (f, t) <- zip templateFiles jobTemplates ]
-  results <- mapM (either printError (return . Just)) parseResults
-  -- Return only successfully parsed job templates
-  return $ map fromJust $ filter isJust results
-  where
-    printError (file, error) = do
-      putStrLn $ "ERROR: Failed to parse job template JSON: " <> file <> "\n\n" <> error
-      return Nothing
 
 drupalAuth :: TrebServerBase a -> Maybe Text -> TrebServerBase a
 drupalAuth action cookies = do

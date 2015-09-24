@@ -1,33 +1,49 @@
 module Treb.Config (withEnv) where
 
-getPool :: TrebConfig -> EitherT String IO (H.Pool HP.Postgres)
-getPool conf = do
-  mapM_ (\(attr, msg) ->
-    leftIf
-      (isNothing $ attr conf)
-      $ msg <> " for PostgreSQL database not given.")
-    [ (confPGHost,         "Host")
-    , (confPGPort,         "Port")
-    , (confPGUsername,     "Username")
-    , (confPGPassword,     "Password")
-    , (confPGDatabase,     "Database name")
-    , (confPGPoolMax,      "Maximum pool size")
-    , (confPGConnLifetime, "Connection duration") ]
+import qualified Hasql.Postgres as HP
+import qualified Hasql as H
+import qualified Data.Map as M
+import qualified Data.ByteString.Lazy as B
+import qualified Data.ByteString.Char8 as BC
+import qualified Database.MySQL.Simple as MySQL
+import qualified Database.MySQL.Simple.Types as MySQL
+import System.Directory
+import Data.Aeson
+import Data.Proxy
+import Network.Wai
+import Network.Wai.Handler.Warp
+import Network.Wai.Handler.WarpTLS
+import Data.Maybe
+import Data.Monoid
+import System.FilePath
+import Control.Monad
+import Control.Monad.Trans.Either
+import Control.Monad.Trans.Class
+import Control.Concurrent.STM.TVar
+import Control.Monad.STM
+import Control.Monad.IO.Class
+import Control.Monad.State.Class
+import System.INotify
+import Control.Monad.State.Lazy
+import Data.Text (Text, pack)
+import Control.Concurrent
+import Servant
+import Servant.Server
+import Control.Exception
+import System.IO.Error
+import Data.List (find)
+import Web.Cookie
+import Data.Text.Encoding
+import System.Environment (getArgs)
+import System.Exit
+import Text.Read (readEither)
+import Data.Bool
+import Data.Bits (xor)
+import Treb.Combinators
+import Treb.Types
 
-  pgPort         <- hoistEither $ readEither $ fromJust $ confPGPort conf
-  pgPoolMax      <- hoistEither $ readEither $ fromJust $ confPGPoolMax conf
-  pgConnLifetime <- hoistEither $ readEither $ fromJust $ confPGConnLifetime conf
-
-  maybe
-    (left "Invalid PostgreSQL pool settings.")
-    (liftIO . uncurry H.acquirePool)
-    $ (,) <$> (HP.ParamSettings <$> fmap BC.pack (confPGHost conf)
-                                <*> pure pgPort
-                                <*> fmap BC.pack (confPGUsername conf)
-                                <*> fmap BC.pack (confPGPassword conf)
-                                <*> fmap BC.pack (confPGDatabase conf))
-          <*> (fromMaybe Nothing $ H.poolSettings <$> pure pgPoolMax
-                                                  <*> pure pgConnLifetime)
+withTrebEnv :: (TrebEnv -> IO ()) -> IO ()
+withTrebEnv f = eitherT (putStrLn . ("ERROR: " ++)) f getEnv
 
 getEnv :: EitherT String IO TrebEnv
 getEnv = do
@@ -50,7 +66,7 @@ getEnv = do
 
   leftIf
     jobTemplateDirExists
-    $ "Job template directory '" <> (cwd </> jobTemplateDir) <> "' not found."
+    $ "Job template directory '" ++ (cwd </> jobTemplateDir) ++ "' not found."
 
   -- Create TVar for updating the job templates available to HTTP request handlers
   jobTemplatesTVar <- liftIO $ newTVarIO Nothing
@@ -77,7 +93,7 @@ getEnv = do
     mapM_ (\(attr, msg) ->
       leftIf
         (isNothing $ attr conf)
-        $ msg <> " for OpenAtrium database not given.")
+        $ msg ++ " for OpenAtrium database not given.")
       [ (confOAHost,     "Host")
       , (confOAPort,     "Port")
       , (confOADatabase, "Database name")
@@ -106,9 +122,6 @@ getEnv = do
     , trebEnvUsername         = Nothing
     , trebEnvConfig           = conf }
   where
-    catchAny :: (SomeException -> IO a) -> IO a -> IO a
-    catchAny = flip catch
-
     processArgs :: TrebConfig -> [String] -> EitherT String IO TrebConfig
     processArgs conf []                                                      = right conf
     processArgs conf (x  :xs) | x == "-d" || x == "--debug"                  = processArgs (conf { confDebugMode      = True })   xs
@@ -132,5 +145,59 @@ getEnv = do
     processArgs conf (x:y:xs) | x == "-s" || x == "--pg-database"            = processArgs (conf { confPGDatabase     = Just y }) xs
     processArgs conf (x:y:xs) | x == "-m" || x == "--pg-pool-max"            = processArgs (conf { confPGPoolMax      = Just y }) xs
     processArgs conf (x:y:xs) | x == "-l" || x == "--pg-conn-lifetime"       = processArgs (conf { confPGConnLifetime = Just y }) xs
-    processArgs conf (x:_)                                                   = left $ "ERROR: Invalid command-line argument \'" <> x <> "\'."
+    processArgs conf (x:_)                                                   = left $ "ERROR: Invalid command-line argument \'" ++ x ++ "\'."
+
+getPool :: TrebConfig -> EitherT String IO (H.Pool HP.Postgres)
+getPool conf = do
+  mapM_ (\(attr, msg) ->
+    leftIf
+      (isNothing $ attr conf)
+      $ msg ++ " for PostgreSQL database not given.")
+    [ (confPGHost,         "Host")
+    , (confPGPort,         "Port")
+    , (confPGUsername,     "Username")
+    , (confPGPassword,     "Password")
+    , (confPGDatabase,     "Database name")
+    , (confPGPoolMax,      "Maximum pool size")
+    , (confPGConnLifetime, "Connection duration") ]
+
+  pgPort         <- hoistEither $ readEither $ fromJust $ confPGPort conf
+  pgPoolMax      <- hoistEither $ readEither $ fromJust $ confPGPoolMax conf
+  pgConnLifetime <- hoistEither $ readEither $ fromJust $ confPGConnLifetime conf
+
+  maybe
+    (left "Invalid PostgreSQL pool settings.")
+    (liftIO . uncurry H.acquirePool)
+    $ (,) <$> (HP.ParamSettings <$> fmap BC.pack (confPGHost conf)
+                                <*> pure pgPort
+                                <*> fmap BC.pack (confPGUsername conf)
+                                <*> fmap BC.pack (confPGPassword conf)
+                                <*> fmap BC.pack (confPGDatabase conf))
+          <*> (fromMaybe Nothing $ H.poolSettings <$> pure pgPoolMax
+                                                  <*> pure pgConnLifetime)
+
+getJobTemplates :: FilePath -> IO [JobTemplate]
+getJobTemplates templateDir = do
+  -- Get a list of job template file names
+  templateFiles' <- getDirectoryContents templateDir `catch` \e ->
+    if isDoesNotExistError e then do
+      fullTemplateDir <- makeAbsolute templateDir
+      putStrLn $ "ERROR: Job template specification directory '" ++ fullTemplateDir ++ "' does not exist."
+      createDirectoryIfMissing False fullTemplateDir
+      putStrLn $ "Made new directory '" ++ fullTemplateDir ++ "'."
+      return []
+    else
+      throw e
+  templateFiles <- filterM doesFileExist $ map (templateDir </>) templateFiles'
+  -- Get a list of decoded job templates
+  jobTemplates <- mapM (fmap eitherDecode . B.readFile) templateFiles
+  -- Print an error on each failure to decode a job template.
+  let parseResults = [ either (Left . ((,) f)) Right t | (f, t) <- zip templateFiles jobTemplates ]
+  results <- mapM (either printError (return . Just)) parseResults
+  -- Return only successfully parsed job templates
+  return $ map fromJust $ filter isJust results
+  where
+    printError (file, error) = do
+      putStrLn $ "ERROR: Failed to parse job template JSON: " ++ file ++ "\n\n" ++ error
+      return Nothing
 
