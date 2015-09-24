@@ -100,17 +100,17 @@ data DataBlockNameType = -- | Ad-hoc (i.e. user provided) datablock.
 
 -- | Get the type of a 'DataBlockName'.
 dataBlockNameType :: DataBlockName -> DataBlockNameType
-dataBlockNameType (AdHocName _)       = AdHocType
-dataBlockNameType (RecipeName _ _)    = RecipeType
+dataBlockNameType (AdHocName _ _)       = AdHocType
+dataBlockNameType (RecipeName _ _ _)    = RecipeType
 dataBlockNameType (JobResultName _ _) = JobResultType
 dataBlockNameType (AliasName _)       = AliasType
 
 isAdHocType :: DataBlockName -> Bool
-isAdHocType (AdHocName _) = True
+isAdHocType (AdHocName _ _) = True
 isAdHocType _             = False
 
 isRecipeType :: DataBlockName -> Bool
-isRecipeType (RecipeName _ _) = True
+isRecipeType (RecipeName _ _ _) = True
 isRecipeType _                = False
 
 isJobResultType :: DataBlockName -> Bool
