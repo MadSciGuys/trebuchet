@@ -8,12 +8,12 @@ module Main where
 
 import Treb.ExtTypes
 import Treb.ExtJSON
-import Treb.DB.Schema (getPool)
 
 import qualified Hasql.Postgres as HP
 import qualified Hasql as H
 import qualified Data.Map as M
 import qualified Data.ByteString.Lazy as B
+import qualified Data.ByteString.Char8 as BC
 import qualified Database.MySQL.Simple as MySQL
 import qualified Database.MySQL.Simple.Types as MySQL
 import System.Directory
@@ -46,6 +46,8 @@ import Data.Text.Encoding
 import System.Environment (getArgs)
 import System.Exit
 import Text.Read (readEither)
+import Data.Bool
+import Data.Bits (xor)
 
 ---- Servant API Layout Types ----
 type TrebApi = JobTemplateAllH :<|> JobAllH :<|> DemoAuthH
@@ -78,55 +80,74 @@ data TrebEnv = TrebEnv
 
 data TrebConfig = TrebConfig
   { confDebugMode      :: Bool
+  , confPort           :: Int
+  , confJobTemplateDir :: String
   , confSSLCertPath    :: Maybe String
   , confSSLCertKeyPath :: Maybe String
-  , confJobTemplateDir :: String
-  , confPort           :: Int
   , confOAHost         :: Maybe String
   , confOAPort         :: Maybe String
   , confOADatabase     :: Maybe String
   , confOAUsername     :: Maybe String
   , confOAPassword     :: Maybe String
-  , confOADomain       :: Maybe String }
+  , confOADomain       :: Maybe String
+  , confPGHost         :: Maybe String
+  , confPGPort         :: Maybe String
+  , confPGUsername     :: Maybe String
+  , confPGPassword     :: Maybe String
+  , confPGDatabase     :: Maybe String
+  , confPGPoolMax      :: Maybe String
+  , confPGConnLifetime :: Maybe String }
 
 defaultTrebConfig = TrebConfig
     { confDebugMode      = False
+    , confPort           = 3000
+    , confJobTemplateDir = "job_templates"
     , confSSLCertPath    = Nothing
     , confSSLCertKeyPath = Nothing
-    , confJobTemplateDir = "job_templates"
-    , confPort           = 3000
     , confOAHost         = Nothing
     , confOAPort         = Nothing
     , confOADatabase     = Nothing
     , confOAUsername     = Nothing
     , confOAPassword     = Nothing
-    , confOADomain       = Nothing }
+    , confOADomain       = Nothing
+    , confPGHost         = Nothing
+    , confPGPort         = Nothing
+    , confPGUsername     = Nothing
+    , confPGPassword     = Nothing
+    , confPGDatabase     = Nothing
+    , confPGPoolMax      = Nothing
+    , confPGConnLifetime = Nothing }
 
 type TrebServerBase = StateT TrebEnv (EitherT ServantErr IO)
 type TrebServer layout = ServerT layout TrebServerBase
 
 ---- Important Functions ----
+withTrebEnv :: (TrebEnv -> IO ()) -> IO ()
+withTrebEnv f = eitherT (putStrLn . ("ERROR: " <>)) f getEnv
+
 main :: IO ()
 main = do
   ---- Initialize ----
   -- Beget the initial Trebuchet environment state via IO
-  env <- getEnv
+  withTrebEnv $ \ env -> do
+    bool
+      runSettings
+      (runTLS $ fromJust $ tlsSettings <$> (confSSLCertPath $ trebEnvConfig env) <*> (confSSLCertKeyPath $ trebEnvConfig env))
+      (useSSL env)
+      (trebWarpSettings env)
+      (trebApp env)
+      
+useSSL :: TrebEnv -> Bool
+useSSL env = isJust (confSSLCertPath $ trebEnvConfig env) && isJust (confSSLCertKeyPath $ trebEnvConfig env)
 
-  ---- Run ----
-  let xor a b = not (a && b) && (a || b)
-  let cert = confSSLCertPath $ trebEnvConfig $ env
-  let certKey = confSSLCertKeyPath $ trebEnvConfig $ env
+trebApp :: TrebEnv -> Application 
+trebApp = serve trebApiProxy . server
 
-  if isJust cert `xor` isJust certKey then do
-    putStrLn "ERROR: SSL requires both --ssl-certificate and --ssl-certificate-key to be set."
-  else if isJust cert && isJust certKey then
-    runTLS (tlsSettings (fromJust cert) (fromJust certKey)) (flip setPort trebWarpSettings $ confPort $ trebEnvConfig env) (serve trebApiProxy $ server env)
-  else
-    runSettings (flip setPort trebWarpSettings $ confPort $ trebEnvConfig env) (serve trebApiProxy $ server env)
-  
-
-trebWarpSettings :: Settings
-trebWarpSettings = setBeforeMainLoop (putStrLn "Trebuchet is ready.") defaultSettings
+trebWarpSettings :: TrebEnv -> Settings
+trebWarpSettings env =
+  foldl (flip ($)) defaultSettings
+    [ setBeforeMainLoop $ putStrLn "Trebuchet is ready."
+    , setPort $ confPort $ trebEnvConfig env ]
 
 server :: TrebEnv -> Server TrebApi
 server = flip enter trebServer . evalStateTLNat
@@ -175,61 +196,113 @@ trebServer = wrapHandler jobTemplateAllH
     ---- Helpers ----
     todoHandler = lift $ left $ err501
 
-getEnv :: IO TrebEnv
+leftIf :: Monad m => Bool -> l -> EitherT l m ()
+leftIf b l = bool (return ()) (left l) b
+
+ifDebugMode :: Monad m => TrebConfig -> m a -> m (Maybe a)
+ifDebugMode conf action = bool (return Nothing) (action >>= return . Just) (confDebugMode conf)
+
+unlessDebugMode :: Monad m => TrebConfig -> m a -> m (Maybe a)
+unlessDebugMode conf action = bool (action >>= return . Just) (return Nothing) (confDebugMode conf)
+
+-- connSettings :: HP.Settings
+-- connSettings = HP.ParamSettings "10.37.49.24" 5432 "mswan" "mswan" "trebuchet"
+-- 
+-- poolSettings :: Maybe H.PoolSettings
+-- poolSettings = H.poolSettings 6 30
+
+getPool :: TrebConfig -> EitherT String IO (H.Pool HP.Postgres)
+getPool conf = do
+  mapM_ (\(attr, msg) -> leftIf (isNothing $ attr conf) $ msg <> " for PostgreSQL database not given.")
+    [ (confPGHost,         "Host")
+    , (confPGPort,         "Port")
+    , (confPGUsername,     "Username")
+    , (confPGPassword,     "Password")
+    , (confPGDatabase,     "Database name")
+    , (confPGPoolMax,      "Maximum pool size")
+    , (confPGConnLifetime, "Connection duration") ]
+
+  pgPort <- hoistEither $ readEither $ fromJust $ confPGPort conf
+  pgPoolMax <- hoistEither $ readEither $ fromJust $ confPGPoolMax conf
+  pgConnLifetime <- hoistEither $ readEither $ fromJust $ confPGConnLifetime conf
+
+  maybe
+    (left "Invalid PostgreSQL pool settings.")
+    (liftIO . uncurry H.acquirePool)
+    $ (,) <$> (HP.ParamSettings <$> fmap BC.pack (confPGHost conf)
+                                <*> pure pgPort
+                                <*> fmap BC.pack (confPGUsername conf)
+                                <*> fmap BC.pack (confPGPassword conf)
+                                <*> fmap BC.pack (confPGDatabase conf))
+          <*> (fromMaybe Nothing $ H.poolSettings <$> pure pgPoolMax
+                                                  <*> pure pgConnLifetime)
+
+getEnv :: EitherT String IO TrebEnv
 getEnv = do
-  -- Create a pool of connections to Postgres
-  pool <- getPool
+  -- Generate configuration from command line arguments
+  conf <- processArgs defaultTrebConfig =<< liftIO getArgs
 
-  -- Process arguments
-  args <- getArgs
+  -- Create a pool of connections to PostgreSQL
+  pool <- getPool conf
 
-  conf <- either
-    (\e -> putStrLn e >> exitFailure)
-    return
-    (processArgs defaultTrebConfig args)
+  -- Check that SSL-related command line arguments are well formed
+  leftIf
+    (isJust (confSSLCertPath conf) `xor` isJust (confSSLCertKeyPath conf))
+    $ "SSL requires both -c/--ssl-certificate and -k/--ssl-certificate-key to be set."
+    
+  -- Check that the job template directory exists
+  let jobTemplateDir = confJobTemplateDir conf
+
+  cwd <- liftIO getCurrentDirectory
+  jobTemplateDirExists <- liftIO $ doesFileExist jobTemplateDir
+
+  leftIf
+    jobTemplateDirExists
+    $ "Job template directory '" <> (cwd </> jobTemplateDir) <> "' not found."
 
   -- Create TVar for updating the job templates available to HTTP request handlers
-  jobTemplatesTVar <- newTVarIO Nothing
+  jobTemplatesTVar <- liftIO $ newTVarIO Nothing
 
   -- Begin watching job_templates directory and automatically update the internal job templates accordingly
-  putStrLn "Initializing event watchers for job templates directory."
-  inotify <- initINotify
-  addWatch inotify [Create, Delete, Modify, MoveIn, MoveOut] "job_templates" $ \ _ -> do
-    jobTemplates <- getJobTemplates "job_templates"
-    atomically $ swapTVar jobTemplatesTVar (Just jobTemplates)
-    putStrLn "Job Templates Updated."
-  putStrLn "> Done."
+  liftIO $ do
+    putStrLn "Initializing event watchers for job templates directory."
   
+    inotify <- initINotify
+    addWatch inotify [Create, Delete, Modify, MoveIn, MoveOut] jobTemplateDir $ \ _ ->
+      --getJobTemplates jobTemplateDir
+      return []
+        >>= atomically . swapTVar jobTemplatesTVar . Just
+        >> putStrLn "Job Templates Updated."
+
+    putStrLn "> Done."
+
   -- Get the initial job templates
-  putStrLn "Parsing job templates."
-  jobTemplates <- getJobTemplates "job_templates"
-  putStrLn "> Done."
+  jobTemplates <- liftIO $ putStrLn "Parsing job templates."
+                        *> return []-- getJobTemplates jobTemplateDir
+                        <* putStrLn "> Done."
 
   -- Connect to the Drupal/OpenAtrium MySQL database for authentication and authorization
-  drupalMySQLConn <-
-    if confDebugMode conf then
-      return Nothing
-    else do
-      putStrLn "Connecting to Drupal/OpenAtrium MySQL database."
-      port <- maybe
-        (putStrLn "ERROR: Port to OpenAtrium database not given." *> pure Nothing)
-        (catchAny (const $ putStrLn "ERROR: Failed to read the OpenAtrium port argument." *> pure Nothing) . return . read)
-        (confOAPort conf)
-      maybe
-        (putStrLn "> Failure." >> exitFailure)
-        (\(h, po, u, pa, db) ->
-          fmap Just (MySQL.connect $ MySQL.defaultConnectInfo
-            { MySQL.connectHost     = h
-            , MySQL.connectPort     = po
-            , MySQL.connectUser     = u
-            , MySQL.connectPassword = pa
-            , MySQL.connectDatabase = db })
-          <* putStrLn "> Done.") $
-        (,,,,) <$> confOAHost conf
-               <*> port
-               <*> confOAUsername conf
-               <*> confOAPassword conf
-               <*> confOADatabase conf
+  drupalMySQLConn <- unlessDebugMode conf $ do
+    mapM_ (\(attr, msg) -> leftIf (isNothing $ attr conf) $ msg <> " for OpenAtrium database not given.")
+      [ (confOAHost,     "Host")
+      , (confOAPort,     "Port")
+      , (confOADatabase, "Database name")
+      , (confOAUsername, "Username")
+      , (confOAPassword, "Password") ]
+
+    liftIO $ putStrLn "Connecting to Drupal/OpenAtrium MySQL database."
+
+    oaPort <- hoistEither $ readEither $ fromJust $ confOAPort conf
+    ret <- liftIO $ MySQL.connect $
+       MySQL.defaultConnectInfo
+         { MySQL.connectHost     = fromJust $ confOAHost conf
+         , MySQL.connectPort     = oaPort
+         , MySQL.connectDatabase = fromJust $ confOADatabase conf
+         , MySQL.connectUser     = fromJust $ confOAUsername conf
+         , MySQL.connectPassword = fromJust $ confOAPassword conf }
+
+    liftIO $ putStrLn "> Done."
+    return ret
 
   -- Construct the Trebuchet environment
   return $ TrebEnv
@@ -242,14 +315,14 @@ getEnv = do
     catchAny :: (SomeException -> IO a) -> IO a -> IO a
     catchAny = flip catch
 
-    processArgs :: TrebConfig -> [String] -> Either String TrebConfig
-    processArgs conf [] = Right conf
+    processArgs :: TrebConfig -> [String] -> EitherT String IO TrebConfig
+    processArgs conf []                                                      = right conf
     processArgs conf (x  :xs) | x == "-d" || x == "--debug"                  = processArgs (conf { confDebugMode      = True })   xs
     processArgs conf (x:y:xs) | x == "-c" || x == "--ssl-certificate"        = processArgs (conf { confSSLCertPath    = Just y }) xs
     processArgs conf (x:y:xs) | x == "-k" || x == "--ssl-certificate-key"    = processArgs (conf { confSSLCertKeyPath = Just y }) xs
     processArgs conf (x:y:xs) | x == "-t" || x == "--job-template-directory" = processArgs (conf { confJobTemplateDir = y })      xs
     processArgs conf (x:y:xs) | x == "-p" || x == "--port"                   = either
-                                                                                 Left
+                                                                                 left
                                                                                  (\p -> processArgs (conf { confPort  = p })      xs)
                                                                                  (readEither y)
     processArgs conf (x:y:xs) | x == "-H" || x == "--oa-host"                = processArgs (conf { confOAHost         = Just y }) xs
@@ -258,7 +331,14 @@ getEnv = do
     processArgs conf (x:y:xs) | x == "-U" || x == "--oa-username"            = processArgs (conf { confOAUsername     = Just y }) xs
     processArgs conf (x:y:xs) | x == "-P" || x == "--oa-password"            = processArgs (conf { confOAPassword     = Just y }) xs
     processArgs conf (x:y:xs) | x == "-C" || x == "--oa-cookie-domain"       = processArgs (conf { confOADomain       = Just y }) xs
-    processArgs conf (x:_) = Left $ "ERROR: Invalid command-line argument \'" <> x <> "\'."
+    processArgs conf (x:y:xs) | x == "-h" || x == "--pg-host"                = processArgs (conf { confPGHost         = Just y }) xs
+    processArgs conf (x:y:xs) | x == "-b" || x == "--pg-port"                = processArgs (conf { confPGPort         = Just y }) xs
+    processArgs conf (x:y:xs) | x == "-u" || x == "--pg-username"            = processArgs (conf { confPGUsername     = Just y }) xs
+    processArgs conf (x:y:xs) | x == "-w" || x == "--pg-password"            = processArgs (conf { confPGPassword     = Just y }) xs
+    processArgs conf (x:y:xs) | x == "-s" || x == "--pg-database"            = processArgs (conf { confPGDatabase     = Just y }) xs
+    processArgs conf (x:y:xs) | x == "-m" || x == "--pg-pool-max"            = processArgs (conf { confPGPoolMax      = Just y }) xs
+    processArgs conf (x:y:xs) | x == "-l" || x == "--pg-conn-lifetime"       = processArgs (conf { confPGConnLifetime = Just y }) xs
+    processArgs conf (x:_)                                                   = left $ "ERROR: Invalid command-line argument \'" <> x <> "\'."
 
 trebEnvGetJobTemplate :: TrebEnv -> JobTemplateId -> Maybe JobTemplate
 trebEnvGetJobTemplate = flip M.lookup . M.fromList . map (\jt -> (jobTemplateId jt, jt)) . trebEnvJobTemplates
