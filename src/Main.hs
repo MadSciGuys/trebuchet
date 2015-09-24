@@ -140,17 +140,14 @@ main = do
 useSSL :: TrebEnv -> Bool
 useSSL env = isJust (confSSLCertPath $ trebEnvConfig env) && isJust (confSSLCertKeyPath $ trebEnvConfig env)
 
-trebApp :: TrebEnv -> Application 
-trebApp = serve trebApiProxy . server
-
 trebWarpSettings :: TrebEnv -> Settings
 trebWarpSettings env =
   foldl (flip ($)) defaultSettings
     [ setBeforeMainLoop $ putStrLn "Trebuchet is ready."
     , setPort $ confPort $ trebEnvConfig env ]
 
-server :: TrebEnv -> Server TrebApi
-server = flip enter trebServer . evalStateTLNat
+trebApp :: TrebEnv -> Application
+trebApp = serve trebApiProxy . flip enter trebServer . evalStateTLNat
 
 trebServer :: TrebServer TrebApi
 trebServer = wrapHandler jobTemplateAllH
@@ -213,7 +210,10 @@ unlessDebugMode conf action = bool (action >>= return . Just) (return Nothing) (
 
 getPool :: TrebConfig -> EitherT String IO (H.Pool HP.Postgres)
 getPool conf = do
-  mapM_ (\(attr, msg) -> leftIf (isNothing $ attr conf) $ msg <> " for PostgreSQL database not given.")
+  mapM_ (\(attr, msg) ->
+    leftIf
+      (isNothing $ attr conf)
+      $ msg <> " for PostgreSQL database not given.")
     [ (confPGHost,         "Host")
     , (confPGPort,         "Port")
     , (confPGUsername,     "Username")
@@ -222,8 +222,8 @@ getPool conf = do
     , (confPGPoolMax,      "Maximum pool size")
     , (confPGConnLifetime, "Connection duration") ]
 
-  pgPort <- hoistEither $ readEither $ fromJust $ confPGPort conf
-  pgPoolMax <- hoistEither $ readEither $ fromJust $ confPGPoolMax conf
+  pgPort         <- hoistEither $ readEither $ fromJust $ confPGPort conf
+  pgPoolMax      <- hoistEither $ readEither $ fromJust $ confPGPoolMax conf
   pgConnLifetime <- hoistEither $ readEither $ fromJust $ confPGConnLifetime conf
 
   maybe
@@ -269,8 +269,7 @@ getEnv = do
   
     inotify <- initINotify
     addWatch inotify [Create, Delete, Modify, MoveIn, MoveOut] jobTemplateDir $ \ _ ->
-      --getJobTemplates jobTemplateDir
-      return []
+      getJobTemplates jobTemplateDir
         >>= atomically . swapTVar jobTemplatesTVar . Just
         >> putStrLn "Job Templates Updated."
 
@@ -278,12 +277,15 @@ getEnv = do
 
   -- Get the initial job templates
   jobTemplates <- liftIO $ putStrLn "Parsing job templates."
-                        *> return []-- getJobTemplates jobTemplateDir
+                        *> getJobTemplates jobTemplateDir
                         <* putStrLn "> Done."
 
   -- Connect to the Drupal/OpenAtrium MySQL database for authentication and authorization
   drupalMySQLConn <- unlessDebugMode conf $ do
-    mapM_ (\(attr, msg) -> leftIf (isNothing $ attr conf) $ msg <> " for OpenAtrium database not given.")
+    mapM_ (\(attr, msg) ->
+      leftIf
+        (isNothing $ attr conf)
+        $ msg <> " for OpenAtrium database not given.")
       [ (confOAHost,     "Host")
       , (confOAPort,     "Port")
       , (confOADatabase, "Database name")
