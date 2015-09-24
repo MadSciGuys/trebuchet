@@ -47,12 +47,20 @@ import qualified Data.Vector as V
 
 import Foreign.Ptr
 
+import qualified Codec.MIME.Type as MIME
+
 import ProtoDB.Types
 
 import System.Posix.Types
 
 import Treb.Filter
 import Treb.BadRegex
+
+-- | Data pipeline.
+data DataPipeline = DataPipeline {
+    dplID   :: Word64
+  , dplName :: T.Text
+  } deriving (Eq, Ord, Show)
 
 -- | A reference to a datablock. Each datablock has at least one unique element
 --   of this type, elsewhere known as the "canonical name". 'AdHocName',
@@ -62,12 +70,16 @@ import Treb.BadRegex
 --   'JobResultName' types, with zero or more additional names of the
 --   'AliasName' type.
 data DataBlockName = -- | Ad-hoc (i.e. user provided) datablock.
-                     AdHocName T.Text
+                     AdHocName {
+                       shortName    :: T.Text -- ^ User provided name.
+                     , uploaderName :: T.Text -- ^ Uploader's username.
+                     }
                      -- | Recipe datablock, from an automated data pipeline.
                    | RecipeName {
                        compoundName :: T.Text   -- ^ Compound name.
                      , recipeNames  :: [T.Text] -- ^ Recipe names in topological
                                                 --   order.
+                     , pipelineName :: T.Text   -- ^ Data "pipeline" name.
                      }
                      -- | Job execution result, including the 'Job' ID and name.
                    | JobResultName Word64 T.Text
@@ -177,7 +189,7 @@ instance Filterable (M.Map DataBlockName DataBlock) where
 --   names are expected to be unique within a datablock.
 data DataBlockField = DataBlockField {
     fieldName    :: T.Text
-  , fieldType    :: ProtoCell
+  , fieldType    :: ProtoCellType
   -- | If the field is a scalar, this will equal the empty list. If it is a
   --   vector, it will contain a list of integers describing the maximum length
   --   in each dimension in row-major order. For example, a three dimensional
@@ -187,6 +199,9 @@ data DataBlockField = DataBlockField {
   --   elements of this list (60 in this example).
   , vectorShape  :: [Int]
   , fieldIndexed :: Bool
+  -- | If the datablock field is of 'ProtoBinary' type, this field contains a
+  --   "best guess" of the binary data's MIME type.
+  , mimeGuess    :: Maybe MIME.Type
   } deriving (Eq, Ord, Show)
 
 -- data DataBlockFieldType = DataBlockFieldType {
@@ -397,7 +412,7 @@ data JobArgType = -- | Boolean argument.
                   -- | Datablock tag argument, see 'JobConfig'.
                 | DataBlockTagArgType
                   -- | Vector argument, with optional shape requirement.
-                | VectorArgType (Maybe [Int])
+                | VectorArgType (Maybe [Int]) JobArgType
                 deriving (Eq, Ord, Show)
 
 -- | Job argument.
@@ -437,16 +452,27 @@ data JobArgVal = -- | Clause stipulating that the given argument is set.
                | JobArgNot JobArgVal
                deriving (Eq, Ord, Show)
 
+data JobParam = JobParam {
+    jobParamDispName :: T.Text
+  , jobParamDesc     :: Maybe T.Text
+  , jobParamKeyName  :: T.Text
+  , jobParamDefault  :: Maybe JobArg
+  , jobParamArgType  :: JobArgType
+  } deriving (Eq, Ord, Show)
+
 -- | A job template, uniquely idenfifying a runnable job and its argument
 --   requirements.
 data JobTemplate = JobTemplate {
     -- | Job template name.
     jobTemplateName   :: T.Text
+  , jobTemplateDesc   :: Maybe T.Text
     -- | Job template parameter set, specifiying which arguments /may/ be
     --   present, with optional default vaule.
-  , jobTemplateParams :: M.Map T.Text (JobArgType, Maybe JobArg)
+  , jobTemplateParams :: M.Map T.Text JobParam
     -- | Job argument constraints.
   , jobTemplateConstr :: JobArgVal
+    -- | Job template datablock tags (first tuple element in 'jobDataBlocks').
+  , jobTemplateDBTags :: [T.Text]
   } deriving (Eq, Ord, Show)
 
 -- | A runnable job configuration. The validity of a type member's 'jobArgs'
@@ -461,7 +487,7 @@ data JobConfig = JobConfig {
   , jobArgs       :: M.Map T.Text JobArg
     -- | The datablocks to be fed to the job, each with a unique(within one
     --   'JobConfig') textual tag and optional 'query' applied.
-  , jobDataBlocks :: [(T.Text, DataBlockName, Maybe Query)]
+  , jobDataBlocks :: [(Maybe T.Text, DataBlockName, Maybe Query)]
   } deriving (Eq, Ord, Show)
 
 -- | Job error.
