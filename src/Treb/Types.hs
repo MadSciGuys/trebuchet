@@ -166,8 +166,8 @@ instance Filterable (M.Map DataBlockName DataBlock) where
     type Atom (M.Map DataBlockName DataBlock) = DataBlockFilter
     appAtom (NameType t) = M.filter ((t ==) . dataBlockNameType . dbName)
     appAtom (NameExact n) = lookupMap n
-    appAtom (NameRegex e) = let compMatch (AdHocName n) = n `badRegexBool` e
-                                compMatch (RecipeName cn rns) = (cn `badRegexBool` e) || all (`badRegexBool` e) rns
+    appAtom (NameRegex e) = let compMatch (AdHocName n _) = n `badRegexBool` e
+                                compMatch (RecipeName cn rns pn) = (pn `badRegexBool` e) || (cn `badRegexBool` e) || all (`badRegexBool` e) rns
                                 compMatch (JobResultName i n) = (T.pack (show i) `badRegexBool` e) || (n `badRegexBool` e)
                                 compMatch (AliasName n) = n `badRegexBool` e
                             in M.filter (compMatch . dbName)
