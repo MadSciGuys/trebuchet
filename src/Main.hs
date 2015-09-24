@@ -202,12 +202,6 @@ ifDebugMode conf action = bool (return Nothing) (action >>= return . Just) (conf
 unlessDebugMode :: Monad m => TrebConfig -> m a -> m (Maybe a)
 unlessDebugMode conf action = bool (action >>= return . Just) (return Nothing) (confDebugMode conf)
 
--- connSettings :: HP.Settings
--- connSettings = HP.ParamSettings "10.37.49.24" 5432 "mswan" "mswan" "trebuchet"
--- 
--- poolSettings :: Maybe H.PoolSettings
--- poolSettings = H.poolSettings 6 30
-
 getPool :: TrebConfig -> EitherT String IO (H.Pool HP.Postgres)
 getPool conf = do
   mapM_ (\(attr, msg) ->
