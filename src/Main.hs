@@ -138,14 +138,14 @@ trebServer = wrapHandler jobTemplateAllH
     ---- Helpers ----
     todoHandler = lift $ left $ err501
 
-trebEnvGetJobTemplate :: TrebEnv -> JobTemplateId -> Maybe JobTemplate
-trebEnvGetJobTemplate = flip M.lookup . M.fromList . map (\jt -> (jobTemplateId jt, jt)) . trebEnvJobTemplates
-
-trebEnvGetParamType :: TrebEnv -> JobTemplateId -> Text -> Maybe JobTemplateParameterType
-trebEnvGetParamType env jtId paramKeyName =
-  M.lookup paramKeyName $ fromMaybe M.empty $ do
-    jt <- trebEnvGetJobTemplate env jtId
-    return $ M.fromList $ map (\p -> (jobTemplateParameterKeyName p, jobTemplateParameterType p)) $ jobTemplateParameters jt
+-- trebEnvGetJobTemplate :: TrebEnv -> JobTemplateId -> Maybe JobTemplate
+-- trebEnvGetJobTemplate = flip M.lookup . M.fromList . map (\jt -> (jobTemplateId jt, jt)) . trebEnvJobTemplates
+-- 
+-- trebEnvGetParamType :: TrebEnv -> JobTemplateId -> Text -> Maybe JobTemplateParameterType
+-- trebEnvGetParamType env jtId paramKeyName =
+--   M.lookup paramKeyName $ fromMaybe M.empty $ do
+--     jt <- trebEnvGetJobTemplate env jtId
+--     return $ M.fromList $ map (\p -> (jobTemplateParameterKeyName p, jobTemplateParameterType p)) $ jobTemplateParameters jt
 
 drupalAuth :: TrebServerBase a -> Maybe Text -> TrebServerBase a
 drupalAuth action cookies = do

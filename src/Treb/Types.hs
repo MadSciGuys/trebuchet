@@ -557,12 +557,14 @@ data TrebConfig = TrebConfig
   , confPGPoolMax      :: Maybe String
   , confPGConnLifetime :: Maybe String }
 
-
 type JobTemplateMap = MVar (M.Map T.Text (MVar JobTemplate))
 
 type JobConfigMap = MVar (M.Map T.Text (MVar JobConfig))
 
 type JobMap = MVar (M.Map Word64 (MVar Job))
+
+data ClientError = ClientError ClientErrorCode T.Text
+data ClientErrorCode = CEMissingSessionCookie | CEInvalidSessionCookie
 
 lookupMap :: Ord k => k -> M.Map k a -> M.Map k a
 lookupMap k m = case M.lookup k m of Nothing  -> M.empty
