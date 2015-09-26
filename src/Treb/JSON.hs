@@ -35,6 +35,8 @@ import Data.Either (either)
 
 import Data.Word
 
+import Data.Maybe
+
 import qualified Data.Map as M
 
 import qualified Data.Set as S
@@ -55,59 +57,95 @@ import Text.ProtocolBuffers.Basic
 
 import qualified ProtoDB.Types as P
 
+import qualified Codec.MIME.Type as MIME
+import qualified Codec.MIME.Parse as MIME
+
 import System.Posix.Types
 
 import Treb.Types
 import Treb.Filter
-
---import Treb.JSON.DataBlockName ()
---import Treb.JSON.DataBlockNameType ()
---import Treb.JSON.DataBlockField ()
---import Treb.JSON.DataBlockFieldType ()
---import Treb.JSON.DataBlockSource ()
---import Treb.JSON.DataBlockCell ()
---import Treb.JSON.DataBlock ()
---import Treb.JSON.DataBlockCreate ()
---import Treb.JSON.Job ()
---import Treb.JSON.JobCreate ()
---import Treb.JSON.JobTemplate ()
---import Treb.ExtJSON ()
 
 default (T.Text)
 
 typeObject :: T.Text -> [Pair] -> Value
 typeObject = (object .) . (:) . ("type" .=)
 
--- instance ToJSON DataBlockField where
---     toJSON (DataBlockField n t s i) = typeObject "datablock_field"
---             [ "datablock_field_name" .= n
---             , "datablock_field_type" .= t
---             , "datablock_field_vector_shape" .= s
---             , "datablock_field_indexed" .= i
---             ]
--- 
--- instance FromJSON DataBlockField where
---     parseJSON (Object v) = do
---         "datablock_field" <- v .: "type"
---         DataBlockField <$> v .: "datablock_field_name"   <*>
---                            v .: "datablock_field_type"   <*>
---                            v .: "datablock_field_vector_shape" <*>
---                            v .: "datablock_field_indexed"
--- 
--- instance ToJSON P.ProtoType where
---     toJSON P.Int      = "int"
---     toJSON P.Real     = "real"
---     toJSON P.String   = "string"
---     toJSON P.DateTime = "datetime"
---     toJSON P.Binary   = "binary"
--- 
--- instance FromJSON P.ProtoType where
---     parseJSON (String "int")      = return P.Int
---     parseJSON (String "real")     = return P.Real
---     parseJSON (String "string")   = return P.String
---     parseJSON (String "datetime") = return P.DateTime
---     parseJSON (String "binary")   = return P.Binary
--- 
+instance ToJSON DataBlockName where
+    toJSON (AdHocName n user) = typeObject "datablock_name"
+            [ "datablock_name_type"    .= AdHocType
+            , "datablock_name"         .= n
+            , "datablock_name_creator" .= user
+            ]
+    toJSON (RecipeName c rs p) = typeObject "datablock_name"
+            [ "datablock_name_type"      .= RecipeType
+            , "datablock_name_compound"  .= c
+            , "datablock_name_recipes"   .= rs
+            , "datablock_name_pipeline"  .= p
+            ]
+    toJSON (JobResultName i n) = typeObject "datablock_name"
+            [ "datablock_name_type" .= JobResultType
+            , "datablock_job_id"    .= i
+            , "datablock_name"      .= n
+            ]
+    toJSON (AliasName n) = typeObject "datablock_name"
+            [ "datablock_name_type" .= AliasType
+            , "datablock_name" .= n
+            ]
+
+instance FromJSON DataBlockName where
+    parseJSON (Object v) = do
+        "datablock_name" <- v .: "type"
+        t <- v .: "datablock_name_type"
+        case t of AdHocType     -> AdHocName <$> v .: "datablock_name" <*> v .: "datablock_name_creator"
+                  RecipeType    -> RecipeName <$> v .: "datablock_name_compound" <*> v .: "datablock_name_recipes" <*> v .: "datablock_name_pipeline"
+                  JobResultType -> JobResultName <$> v .: "datablock_job_id" <*> v .: "datablock_name"
+                  AliasType     -> AliasName <$> v .: "datablock_name"
+
+instance ToJSON DataBlockNameType where
+    toJSON AdHocType     = "ad_hoc"
+    toJSON RecipeType    = "recipe"
+    toJSON JobResultType = "job_result"
+    toJSON AliasType     = "alias"
+
+instance FromJSON DataBlockNameType where
+    parseJSON (String "ad_hoc")      = return AdHocType
+    parseJSON (String "recipe_type") = return RecipeType
+    parseJSON (String "job_result")  = return JobResultType
+    parseJSON (String "alias")       = return AliasType
+    parseJSON _                      = fail "bad data_block_name_type"
+
+instance ToJSON DataBlockField where
+    toJSON (DataBlockField n t s i m) = typeObject "datablock_field"
+            [ "datablock_field_name"         .= n
+            , "datablock_field_type"         .= t
+            , "datablock_field_vector_shape" .= s
+            , "datablock_field_indexed"      .= i
+            , "datablock_field_mime_type"    .= m
+            ]
+
+instance FromJSON DataBlockField where
+    parseJSON (Object v) = do
+        "datablock_field" <- v .: "type"
+        DataBlockField <$> v .: "datablock_field_name"
+                       <*> v .: "datablock_field_type"
+                       <*> v .: "datablock_field_vector_shape"
+                       <*> v .: "datablock_field_indexed"
+                       <*> v .: "datablock_field_mime_type"
+
+instance ToJSON P.ProtoCellType where
+    toJSON P.ProtoIntType      = "int"
+    toJSON P.ProtoRealType     = "real"
+    toJSON P.ProtoStringType   = "string"
+    toJSON P.ProtoDateTimeType = "datetime"
+    toJSON P.ProtoBinaryType   = "binary"
+
+instance FromJSON P.ProtoCellType where
+    parseJSON (String "int")      = return P.ProtoIntType
+    parseJSON (String "real")     = return P.ProtoRealType
+    parseJSON (String "string")   = return P.ProtoStringType
+    parseJSON (String "datetime") = return P.ProtoDateTimeType
+    parseJSON (String "binary")   = return P.ProtoBinaryType
+
 -- -- | Note that this instance encodes only the datablock metadata.
 -- instance ToJSON DataBlock where
 --     toJSON (DataBlock n h o _ fs _ _ s rs) = typeObject "datablock"
@@ -183,177 +221,203 @@ typeObject = (object .) . (:) . ("type" .=)
 --             , "user_email" .= e
 --             ]
 -- 
--- instance ToJSON JobArgType where
---     toJSON BoolArgType   = typeObject "job_arg_type" ["job_arg_type" .= "bool_arg"]
---     toJSON IntArgType    = typeObject "job_arg_type" ["job_arg_type" .= "int_arg"]
---     toJSON RealArgType   = typeObject "job_arg_type" ["job_arg_type" .= "real_arg"]
---     toJSON StringArgType = typeObject "job_arg_type" ["job_arg_type" .= "string_arg"]
---     toJSON (EnumArgType es) = typeObject "job_arg_type"
---             [ "job_arg_type" .= "enum_arg"
---             , "job_arg_type_enums" .= es
---             ]
---     toJSON (RegexArgType ex) = typeObject "job_arg_type"
---             [ "job_arg_type" .= "regex_arg"
---             , "job_arg_type_regex" .= ex
---             ]
---     toJSON DataBlockNameArgType = typeObject "job_arg_type" ["job_arg_type" .= "datablock_name_arg"]
---     toJSON DataBlockFieldArgType = typeObject "job_arg_type" ["job_arg_type" .= "datablock_field_arg"]
---     toJSON DataBlockTagArgType = typeObject "job_arg_type" ["job_arg_type" .= "datablock_tag_arg"]
---     toJSON (VectorArgType Nothing)   = typeObject "job_arg_type" ["job_arg_type" .= "vector"]
---     toJSON (VectorArgType (Just [])) = typeObject "job_arg_type" ["job_arg_type" .= "vector"]
---     toJSON (VectorArgType (Just s))  = typeObject "job_arg_type" ["job_arg_type" .= "vector"
---                                                                  , "job_arg_type_shape" .= s
---                                                                  ]
--- 
--- instance FromJSON JobArgType where
---     parseJSON (Object v) = do
---         "job_arg_type" <- v .: "type"
---         t <- v .: "job_arg_type"
---         case t of "bool_arg"            -> return BoolArgType
---                   "int_arg"             -> return IntArgType
---                   "real_arg"            -> return RealArgType
---                   "string_arg"          -> return StringArgType
---                   "enum_arg"            -> EnumArgType <$> v .: "job_arg_type_enums"
---                   "regex_arg"           -> RegexArgType <$> v .: "job_arg_type_regex"
---                   "datablock_name_arg"  -> return DataBlockNameArgType
---                   "datablock_field_arg" -> return DataBlockFieldArgType
---                   "datablock_tag_arg"   -> return DataBlockTagArgType
---                   "vector_arg"          -> VectorArgType <$> v .:? "job_arg_type_shape"
---                   _                     -> fail "bad job_arg_type"
--- 
--- instance ToJSON JobArg where
---     toJSON (BoolArg b) = typeObject "job_arg"
---             [ "job_arg_type" .= "bool_arg"
---             , "job_arg_value" .= b
---             ]
---     toJSON (IntArg i) = typeObject "job_arg"
---             [ "job_arg_type" .= "int_arg"
---             , "job_arg_value" .= i
---             ]
---     toJSON (RealArg d) = typeObject "job_arg"
---             [ "job_arg_type" .= "real_arg"
---             , "job_arg_value" .= d
---             ]
---     toJSON (StringArg s) = typeObject "job_arg"
---             [ "job_arg_type" .= "string_arg"
---             , "job_arg_value" .= s
---             ]
---     toJSON (EnumArg s) = typeObject "job_arg"
---             [ "job_arg_type" .= "enum_arg"
---             , "job_arg_value" .= s
---             ]
---     toJSON (RegexArg s) = typeObject "job_arg"
---             [ "job_arg_type" .= "regex_arg"
---             , "job_arg_value" .= s
---             ]
---     toJSON (DataBlockNameArg n) = typeObject "job_arg"
---             [ "job_arg_type" .= "datablock_name_arg"
---             , "job_arg_value" .= n
---             ]
---     toJSON (DataBlockFieldArg n f) = typeObject "job_arg"
---             [ "job_arg_type" .= "datablock_field_arg"
---             , "job_arg_value" .= (n, f)
---             ]
---     toJSON (DataBlockTagArg t) = typeObject "job_arg"
---             [ "job_arg_type" .= "datablock_tag_arg"
---             , "job_arg_value" .= t
---             ]
---     toJSON (VectorArg v) = typeObject "job_arg"
---             [ "job_arg_type" .= "vector_arg"
---             , "job_arg_value" .= v
---             ]
--- 
--- instance FromJSON JobArg where
---     parseJSON (Object v) = do
---         "job_arg" <- v .: "type"
---         t <- v .: "arg_type"
---         case t of "bool_arg"            -> BoolArg <$> v .: "job_arg_value"
---                   "int_arg"             -> IntArg <$> v .: "job_arg_value"
---                   "real_arg"            -> RealArg <$> v .: "job_arg_value"
---                   "string_arg"          -> StringArg <$> v .: "job_arg_value"
---                   "enum_arg"            -> EnumArg <$> v .: "job_arg_value"
---                   "regex_arg"           -> RegexArg <$> v .: "job_arg_value"
---                   "datablock_name_arg"  -> DataBlockNameArg <$> v .: "job_arg_value"
---                   "datablock_field_arg" -> ((`ap` snd) . (. fst)) DataBlockFieldArg <$> v .: "job_arg_value"
---                   "datablock_tag_arg"   -> DataBlockTagArg <$> v .: "job_arg_value"
---                   "vector_arg" -> VectorArg <$> v .: "job_arg_value"
---                   _            -> fail "bad job_arg_type in job_arg"
--- 
--- andList :: JobArgVal -> JobArgVal -> [JobArgVal]
--- andList (JobArgAnd l r) (JobArgAnd l' r') = andList l r ++ andList l' r'
--- andList (JobArgAnd l r) r'                = andList l r ++ [r']
--- andList l               (JobArgAnd l' r') = l : andList l' r'
--- andList l               r                 = [l,r]
--- 
--- orList :: JobArgVal -> JobArgVal -> [JobArgVal]
--- orList (JobArgOr l r) (JobArgOr l' r') = orList l r ++ orList l' r'
--- orList (JobArgOr l r) r'               = orList l r ++ [r']
--- orList l              (JobArgOr l' r') = l : orList l' r'
--- orList l              r                = [l,r]
--- 
--- xorList :: JobArgVal -> JobArgVal -> [JobArgVal]
--- xorList (JobArgXor l r) (JobArgXor l' r') = xorList l r ++ xorList l' r'
--- xorList (JobArgXor l r) r'                = xorList l r ++ [r']
--- xorList l               (JobArgXor l' r') = l : xorList l' r'
--- xorList l               r                 = [l,r]
--- 
--- instance ToJSON JobArgVal where
---     toJSON (JobArg n) = typeObject "job_arg_val"
---             [ "job_arg_val_clause" .= "atom"
---             , "job_arg_val_param_name" .= n
---             ]
---     toJSON (JobArgAnd l r) = typeObject "job_arg_val"
---             [ "job_arg_val_clause" .= "and"
---             , "job_arg_val_ands" .= andList l r
---             ]
---     toJSON (JobArgOr l r) = typeObject "job_arg_val"
---             [ "job_arg_val_clause" .= "or"
---             , "job_arg_val_ors" .= orList l r
---             ]
---     toJSON (JobArgXor l r) = typeObject "job_arg_val"
---             [ "job_arg_val_clause" .= "xor"
---             , "job_arg_val_xors" .= xorList l r
---             ]
--- 
--- andUnlist :: [JobArgVal] -> Parser JobArgVal
--- andUnlist []     = fail "empty job_arg_and list"
--- andUnlist (x:[]) = return x
--- andUnlist (x:xs) = JobArgAnd x <$> andUnlist xs
--- 
--- orUnlist :: [JobArgVal] -> Parser JobArgVal
--- orUnlist []     = fail "empty job_arg_or list"
--- orUnlist (x:[]) = return x
--- orUnlist (x:xs) = JobArgOr x <$> orUnlist xs
--- 
--- xorUnlist :: [JobArgVal] -> Parser JobArgVal
--- xorUnlist []     = fail "empty job_arg_xor list"
--- xorUnlist (x:[]) = return x
--- xorUnlist (x:xs) = JobArgXor x <$> xorUnlist xs
--- 
--- instance FromJSON JobArgVal where
---     parseJSON (Object v) = do
---         "job_arg_val" <- v .: "types"
---         c <- v .: "job_arg_val_clause"
---         case c of "atom" -> JobArg <$> v .: "job_arg_val_param_name"
---                   "and"  -> v .: "job_arg_val_ands" >>= andUnlist
---                   "or"   -> v .: "job_arg_val_ors" >>= orUnlist
---                   "xor"  -> v .: "job_arg_val_xors" >>= xorUnlist
--- 
--- instance ToJSON JobTemplate where
---     toJSON (JobTemplate n p c) = typeObject "job_template"
---             [ "job_template_name" .= n
---             , "job_template_params" .= p
---             , "job_template_constraints" .= c
---             ]
--- 
--- instance FromJSON JobTemplate where
---     parseJSON (Object v) = do
---         "job_template" <- v .: "type"
---         JobTemplate <$>
---             v .: "job_template_name" <*>
---             v .: "job_template_params"        <*>
---             v .: "job_template_constraints"
--- 
+instance ToJSON JobArgType where
+    toJSON BoolArgType   = typeObject "job_arg_type" ["job_arg_type" .= "bool_arg"]
+    toJSON IntArgType    = typeObject "job_arg_type" ["job_arg_type" .= "int_arg"]
+    toJSON RealArgType   = typeObject "job_arg_type" ["job_arg_type" .= "real_arg"]
+    toJSON StringArgType = typeObject "job_arg_type" ["job_arg_type" .= "string_arg"]
+    toJSON (EnumArgType es) = typeObject "job_arg_type"
+            [ "job_arg_type" .= "enum_arg"
+            , "job_arg_type_enums" .= es
+            ]
+    toJSON (RegexArgType ex) = typeObject "job_arg_type"
+            [ "job_arg_type" .= "regex_arg"
+            , "job_arg_type_regex" .= ex
+            ]
+    toJSON DataBlockNameArgType = typeObject "job_arg_type" ["job_arg_type" .= "datablock_name_arg"]
+    toJSON DataBlockFieldArgType = typeObject "job_arg_type" ["job_arg_type" .= "datablock_field_arg"]
+    toJSON DataBlockTagArgType = typeObject "job_arg_type" ["job_arg_type" .= "datablock_tag_arg"]
+    toJSON (VectorArgType (Just s@(_:_))  ty) = typeObject "job_arg_type" [ "job_arg_type"         .= "vector"
+                                                                          , "job_arg_vector_type"  .= ty
+                                                                          , "job_arg_vector_shape" .= s ]
+    toJSON (VectorArgType _ ty) = typeObject "job_arg_type" [ "job_arg_type"        .= "vector"
+                                                            , "job_arg_vector_type" .= ty ]
+
+instance FromJSON JobArgType where
+    parseJSON (Object v) = do
+        "job_arg_type" <- v .: "type"
+        t <- v .: "job_arg_type"
+        case t of "bool_arg"            -> return BoolArgType
+                  "int_arg"             -> return IntArgType
+                  "real_arg"            -> return RealArgType
+                  "string_arg"          -> return StringArgType
+                  "enum_arg"            -> EnumArgType <$> v .: "job_arg_type_enums"
+                  "regex_arg"           -> RegexArgType <$> v .: "job_arg_type_regex"
+                  "datablock_name_arg"  -> return DataBlockNameArgType
+                  "datablock_field_arg" -> return DataBlockFieldArgType
+                  "datablock_tag_arg"   -> return DataBlockTagArgType
+                  "vector_arg"          -> VectorArgType <$> v .:? "job_arg_vector_shape" <*> v .: "job_arg_vector_type"
+                  _                     -> fail "bad job_arg_type"
+
+instance ToJSON JobArg where
+    toJSON (BoolArg b) = typeObject "job_arg"
+            [ "job_arg_type" .= "bool_arg"
+            , "job_arg_value" .= b
+            ]
+    toJSON (IntArg i) = typeObject "job_arg"
+            [ "job_arg_type" .= "int_arg"
+            , "job_arg_value" .= i
+            ]
+    toJSON (RealArg d) = typeObject "job_arg"
+            [ "job_arg_type" .= "real_arg"
+            , "job_arg_value" .= d
+            ]
+    toJSON (StringArg s) = typeObject "job_arg"
+            [ "job_arg_type" .= "string_arg"
+            , "job_arg_value" .= s
+            ]
+    toJSON (EnumArg s) = typeObject "job_arg"
+            [ "job_arg_type" .= "enum_arg"
+            , "job_arg_value" .= s
+            ]
+    toJSON (RegexArg s) = typeObject "job_arg"
+            [ "job_arg_type" .= "regex_arg"
+            , "job_arg_value" .= s
+            ]
+    toJSON (DataBlockNameArg n) = typeObject "job_arg"
+            [ "job_arg_type" .= "datablock_name_arg"
+            , "job_arg_value" .= n
+            ]
+    toJSON (DataBlockFieldArg n f) = typeObject "job_arg"
+            [ "job_arg_type" .= "datablock_field_arg"
+            , "job_arg_value" .= (n, f)
+            ]
+    toJSON (DataBlockTagArg t) = typeObject "job_arg"
+            [ "job_arg_type" .= "datablock_tag_arg"
+            , "job_arg_value" .= t
+            ]
+    toJSON (VectorArg v) = typeObject "job_arg"
+            [ "job_arg_type" .= "vector_arg"
+            , "job_arg_value" .= v
+            ]
+
+instance FromJSON JobArg where
+    parseJSON (Object v) = do
+        "job_arg" <- v .: "type"
+        t <- v .: "arg_type"
+        case t of "bool_arg"            -> BoolArg <$> v .: "job_arg_value"
+                  "int_arg"             -> IntArg <$> v .: "job_arg_value"
+                  "real_arg"            -> RealArg <$> v .: "job_arg_value"
+                  "string_arg"          -> StringArg <$> v .: "job_arg_value"
+                  "enum_arg"            -> EnumArg <$> v .: "job_arg_value"
+                  "regex_arg"           -> RegexArg <$> v .: "job_arg_value"
+                  "datablock_name_arg"  -> DataBlockNameArg <$> v .: "job_arg_value"
+                  "datablock_field_arg" -> ((`ap` snd) . (. fst)) DataBlockFieldArg <$> v .: "job_arg_value"
+                  "datablock_tag_arg"   -> DataBlockTagArg <$> v .: "job_arg_value"
+                  "vector_arg" -> VectorArg <$> v .: "job_arg_value"
+                  _            -> fail "bad job_arg_type in job_arg"
+
+andList :: JobArgVal -> JobArgVal -> [JobArgVal]
+andList (JobArgAnd l r) (JobArgAnd l' r') = andList l r ++ andList l' r'
+andList (JobArgAnd l r) r'                = andList l r ++ [r']
+andList l               (JobArgAnd l' r') = l : andList l' r'
+andList l               r                 = [l,r]
+
+orList :: JobArgVal -> JobArgVal -> [JobArgVal]
+orList (JobArgOr l r) (JobArgOr l' r') = orList l r ++ orList l' r'
+orList (JobArgOr l r) r'               = orList l r ++ [r']
+orList l              (JobArgOr l' r') = l : orList l' r'
+orList l              r                = [l,r]
+
+xorList :: JobArgVal -> JobArgVal -> [JobArgVal]
+xorList (JobArgXor l r) (JobArgXor l' r') = xorList l r ++ xorList l' r'
+xorList (JobArgXor l r) r'                = xorList l r ++ [r']
+xorList l               (JobArgXor l' r') = l : xorList l' r'
+xorList l               r                 = [l,r]
+
+instance ToJSON JobArgVal where
+    toJSON (JobArg n) = typeObject "job_arg_val"
+            [ "job_arg_val_clause"     .= "atom"
+            , "job_arg_val_param_name" .= n
+            ]
+    toJSON (JobArgNot a) = typeObject "job_arg_val"
+            [ "job_arg_val_clause" .= "not"
+            , "job_arg_val_not"    .= a
+            ]
+    toJSON (JobArgAnd l r) = typeObject "job_arg_val"
+            [ "job_arg_val_clause" .= "and"
+            , "job_arg_val_ands"   .= andList l r
+            ]
+    toJSON (JobArgOr l r) = typeObject "job_arg_val"
+            [ "job_arg_val_clause" .= "or"
+            , "job_arg_val_ors"    .= orList l r
+            ]
+    toJSON (JobArgXor l r) = typeObject "job_arg_val"
+            [ "job_arg_val_clause" .= "xor"
+            , "job_arg_val_xors"   .= xorList l r
+            ]
+
+andUnlist :: [JobArgVal] -> Parser JobArgVal
+andUnlist []     = fail "empty job_arg_and list"
+andUnlist (x:[]) = return x
+andUnlist (x:xs) = JobArgAnd x <$> andUnlist xs
+
+orUnlist :: [JobArgVal] -> Parser JobArgVal
+orUnlist []     = fail "empty job_arg_or list"
+orUnlist (x:[]) = return x
+orUnlist (x:xs) = JobArgOr x <$> orUnlist xs
+
+xorUnlist :: [JobArgVal] -> Parser JobArgVal
+xorUnlist []     = fail "empty job_arg_xor list"
+xorUnlist (x:[]) = return x
+xorUnlist (x:xs) = JobArgXor x <$> xorUnlist xs
+
+instance FromJSON JobArgVal where
+    parseJSON (Object v) = do
+        "job_arg_val" <- v .: "types"
+        c <- v .: "job_arg_val_clause"
+        case c of "atom" -> JobArg <$> v .: "job_arg_val_param_name"
+                  "not"  -> JobArgNot <$> v .: "job_arg_val_not"
+                  "and"  -> v .: "job_arg_val_ands" >>= andUnlist
+                  "or"   -> v .: "job_arg_val_ors"  >>= orUnlist
+                  "xor"  -> v .: "job_arg_val_xors" >>= xorUnlist
+
+instance ToJSON JobTemplate where
+    toJSON (JobTemplate n d p c ts) = typeObject "job_template"
+            [ "job_template_name"           .= n
+            , "job_template_description"    .= d
+            , "job_template_params"         .= p
+            , "job_template_constraints"    .= c
+            , "job_template_datablock_tags" .= ts
+            ]
+
+instance FromJSON JobTemplate where
+    parseJSON (Object v) = do
+        "job_template" <- v .: "type"
+        JobTemplate <$> v .: "job_template_name"
+                    <*> v .: "job_template_description"
+                    <*> v .: "job_template_params"
+                    <*> v .: "job_template_constraints"
+                    <*> v .: "job_template_datablock_tags"
+
+instance ToJSON JobParam where
+    toJSON (JobParam n k desc def ty) = typeObject "job_param"
+        [ "job_param_display_name" .= n
+        , "job_param_key_name"     .= k
+        , "job_param_description"  .= desc
+        , "job_param_default"      .= def
+        , "job_param_type"         .= ty
+        ]
+
+instance FromJSON JobParam where
+    parseJSON (Object v) = do
+        "job_param" <- v .: "type"
+        JobParam <$> v .: "job_param_display_name"
+                 <*> v .: "job_param_key_name"
+                 <*> v .: "job_param_description"
+                 <*> v .: "job_param_default"
+                 <*> v .: "job_param_type"
+
 -- instance ToJSON JobConfig where
 --     toJSON (JobConfig n t a d) = typeObject "job_config"
 --             [ "job_config_name" .= n
@@ -646,3 +710,9 @@ typeObject = (object .) . (:) . ("type" .=)
 -- instance FromJSON P.ProtoBinary where
 --     parseJSON (String s) = return $ P.ProtoBinary (Just (B.decodeLenient (BL.fromStrict (E.encodeUtf8 s))))
 --     parseJSON Null        = return $ P.ProtoBinary Nothing
+
+instance ToJSON MIME.Type where
+    toJSON = String . MIME.showType
+
+instance FromJSON MIME.Type where
+    parseJSON (String mt) = return $ fromJust $ MIME.parseMIMEType mt

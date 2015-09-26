@@ -457,8 +457,8 @@ data JobArgVal = -- | Clause stipulating that the given argument is set.
 
 data JobParam = JobParam {
     jobParamDispName :: T.Text
-  , jobParamDesc     :: Maybe T.Text
   , jobParamKeyName  :: T.Text
+  , jobParamDesc     :: Maybe T.Text
   , jobParamDefault  :: Maybe JobArg
   , jobParamArgType  :: JobArgType
   } deriving (Eq, Ord, Show)

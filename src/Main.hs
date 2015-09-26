@@ -66,26 +66,6 @@ type DemoAuthH =
     :> Get '[JSON] Value
 
 ---- Other Servant Related Types ----
-defaultTrebConfig = TrebConfig
-    { confDebugMode      = False
-    , confPort           = 3000
-    , confJobTemplateDir = "job_templates"
-    , confSSLCertPath    = Nothing
-    , confSSLCertKeyPath = Nothing
-    , confOAHost         = Nothing
-    , confOAPort         = Nothing
-    , confOADatabase     = Nothing
-    , confOAUsername     = Nothing
-    , confOAPassword     = Nothing
-    , confOADomain       = Nothing
-    , confPGHost         = Nothing
-    , confPGPort         = Nothing
-    , confPGUsername     = Nothing
-    , confPGPassword     = Nothing
-    , confPGDatabase     = Nothing
-    , confPGPoolMax      = Nothing
-    , confPGConnLifetime = Nothing }
-
 type TrebServerBase = StateT TrebEnv (EitherT ServantErr IO)
 type TrebServer layout = ServerT layout TrebServerBase
 
@@ -157,12 +137,6 @@ trebServer = wrapHandler jobTemplateAllH
 
     ---- Helpers ----
     todoHandler = lift $ left $ err501
-
-ifDebugMode :: Monad m => TrebConfig -> m a -> m (Maybe a)
-ifDebugMode conf action = bool (return Nothing) (action >>= return . Just) (confDebugMode conf)
-
-unlessDebugMode :: Monad m => TrebConfig -> m a -> m (Maybe a)
-unlessDebugMode conf action = bool (action >>= return . Just) (return Nothing) (confDebugMode conf)
 
 trebEnvGetJobTemplate :: TrebEnv -> JobTemplateId -> Maybe JobTemplate
 trebEnvGetJobTemplate = flip M.lookup . M.fromList . map (\jt -> (jobTemplateId jt, jt)) . trebEnvJobTemplates

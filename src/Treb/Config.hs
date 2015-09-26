@@ -1,4 +1,4 @@
-module Treb.Config (withEnv) where
+module Treb.Config (withTrebEnv) where
 
 import qualified Hasql.Postgres as HP
 import qualified Hasql as H
@@ -41,6 +41,7 @@ import Data.Bool
 import Data.Bits (xor)
 import Treb.Combinators
 import Treb.Types
+import Treb.JSON
 
 withTrebEnv :: (TrebEnv -> IO ()) -> IO ()
 withTrebEnv f = eitherT (putStrLn . ("ERROR: " ++)) f getEnv
@@ -201,3 +202,28 @@ getJobTemplates templateDir = do
       putStrLn $ "ERROR: Failed to parse job template JSON: " ++ file ++ "\n\n" ++ error
       return Nothing
 
+defaultTrebConfig = TrebConfig
+    { confDebugMode      = False
+    , confPort           = 3000
+    , confJobTemplateDir = "job_templates"
+    , confSSLCertPath    = Nothing
+    , confSSLCertKeyPath = Nothing
+    , confOAHost         = Nothing
+    , confOAPort         = Nothing
+    , confOADatabase     = Nothing
+    , confOAUsername     = Nothing
+    , confOAPassword     = Nothing
+    , confOADomain       = Nothing
+    , confPGHost         = Nothing
+    , confPGPort         = Nothing
+    , confPGUsername     = Nothing
+    , confPGPassword     = Nothing
+    , confPGDatabase     = Nothing
+    , confPGPoolMax      = Nothing
+    , confPGConnLifetime = Nothing }
+
+ifDebugMode :: Monad m => TrebConfig -> m a -> m (Maybe a)
+ifDebugMode conf action = bool (return Nothing) (action >>= return . Just) (confDebugMode conf)
+
+unlessDebugMode :: Monad m => TrebConfig -> m a -> m (Maybe a)
+unlessDebugMode conf action = bool (action >>= return . Just) (return Nothing) (confDebugMode conf)
