@@ -156,7 +156,7 @@ getUser username = do
     rs <- liftIO $
         MySQL.query
             conn
-            "SELECT atrium_users.uid, atrium_users.name, atrium_realname.realname, atrium_users.email INNER JOIN atrium_realname ON atrium_realname.uid = atrium_users.uid WHERE atrium_users.name = ?"
+            "SELECT atrium_users.uid, atrium_users.name, atrium_realname.realname, atrium_users.mail FROM atrium_users INNER JOIN atrium_realname ON atrium_realname.uid = atrium_users.uid WHERE atrium_users.name = ?"
             (MySQL.Only username)
     case rs of
         [(drupalUid, drupalUsername, drupalRealname, drupalEmail)] ->
