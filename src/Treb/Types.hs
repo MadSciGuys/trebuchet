@@ -369,9 +369,7 @@ data User = User {
   , realName :: T.Text
     -- | Email
   , email    :: T.Text
-    -- | User token, only present if user is logged in.
-  , token    :: MVar (Maybe B.ByteString)
-  }
+  } deriving (Show)
 
 -- | Assumes that there exists a total bijective function between user IDs and
 --   users.
@@ -379,18 +377,18 @@ instance Eq User where
     a == b = userID a == userID b
 
 -- | Displays only user metadata.
-instance Show User where
-    show (User i un rn e _) = concat
-        [ "User {userID = "
-        , show i
-        , ", userName = "
-        , show un
-        , ", realName = "
-        , show rn
-        , ", emails = "
-        , show e
-        , "}"
-        ]
+--instance Show User where
+--    show (User i un rn e) = concat
+--        [ "User {userID = "
+--        , show i
+--        , ", userName = "
+--        , show un
+--        , ", realName = "
+--        , show rn
+--        , ", emails = "
+--        , show e
+--        , "}"
+--        ]
 
 -- | Map of user IDs to users.
 type UserMap = MVar (M.Map Word64 (MVar User))
@@ -564,7 +562,7 @@ type JobConfigMap = MVar (M.Map T.Text (MVar JobConfig))
 type JobMap = MVar (M.Map Word64 (MVar Job))
 
 data ClientError = ClientError ClientErrorCode T.Text
-data ClientErrorCode = CEMissingSessionCookie | CEInvalidSessionCookie
+data ClientErrorCode = CEMissingSessionCookie | CEInvalidSessionCookie | CEUserNotFound
 
 lookupMap :: Ord k => k -> M.Map k a -> M.Map k a
 lookupMap k m = case M.lookup k m of Nothing  -> M.empty

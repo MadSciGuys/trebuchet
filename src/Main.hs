@@ -27,6 +27,7 @@ import Control.Monad.Trans.Either
 import Control.Monad.Trans.Class
 import Control.Concurrent.STM.TVar
 import Control.Monad.STM
+import Control.Monad.Reader
 import Control.Monad.IO.Class
 import Control.Monad.State.Class
 import System.INotify
@@ -50,7 +51,7 @@ import Treb.Config
 import Treb.Types
 
 ---- Servant API Layout Types ----
-type TrebApi = JobTemplateAllH :<|> JobAllH :<|> DemoAuthH
+type TrebApi = JobTemplateAllH :<|> JobAllH :<|> UserH
 
 type JobTemplateAllH =
   "job_template" :> "all"
@@ -60,20 +61,22 @@ type JobAllH =
   "job" :> "all"
     :> Get '[JSON] [Job]
 
+type UserH =
+  "user" :> Capture "username" Text
+  :> Get '[JSON] User
+
 type DemoAuthH =
   "current_username"
     :> Header "Cookie" Text
     :> Get '[JSON] Value
 
 ---- Other Servant Related Types ----
-type TrebServerBase = StateT TrebEnv (EitherT ServantErr IO)
+type TrebServerBase = ReaderT TrebEnv (EitherT ServantErr IO)
 type TrebServer layout = ServerT layout TrebServerBase
 
 ---- Important Functions ----
 main :: IO ()
 main = do
-  ---- Initialize ----
-  -- Beget the initial Trebuchet environment state via IO
   withTrebEnv $ \ env -> do
     bool
       runSettings
@@ -92,65 +95,30 @@ trebWarpSettings env =
     , setPort $ confPort $ trebEnvConfig env ]
 
 trebApp :: TrebEnv -> Application
-trebApp = serve trebApiProxy . flip enter trebServer . evalStateTLNat
+trebApp = serve trebApiProxy . flip enter trebServer . runReaderTNat
 
 trebServer :: TrebServer TrebApi
-trebServer = wrapHandler jobTemplateAllH
-        :<|> wrapHandler jobAllH
-        :<|> (wrapHandler . demoAuthH)
+trebServer = jobTemplateAllH
+        :<|> jobAllH
+        :<|> userH
   where
-    -- | Begin all HTTP requests with a common pre-handler action and follow
-    -- all HTTP requests with a common post-handler action.
-    wrapHandler :: (MonadIO m, MonadState TrebEnv m) => m a -> m a
-    wrapHandler action = do
-      get >>= liftIO . preHandlerIO >>= put
-      ret <- action
-      get >>= liftIO . postHandlerIO >>= put
-      return ret
-
-    preHandlerIO :: TrebEnv -> IO TrebEnv
-    preHandlerIO env = do
-      ---- Update Job Templates ----
-      -- Read the job templates TVar
-      jobTemplates <- readTVarIO (trebEnvJobTemplatesTVar env)
-      -- If it contains a fresh set of job templates, update the environment accordingly.
-      return $ maybe env (setTrebEnvJobTemplates env) jobTemplates
-
-    postHandlerIO :: TrebEnv -> IO TrebEnv
-    postHandlerIO =
-      ---- Do Nothing (for now) ----
-      return
-
     ---- Handlers ----
     jobTemplateAllH :: TrebServer JobTemplateAllH
-    jobTemplateAllH = get >>= return . trebEnvJobTemplates
+    jobTemplateAllH = ask >>= return . trebEnvJobTemplates
 
     jobAllH :: TrebServer JobAllH
     jobAllH = todoHandler
-    -- ^ It is going to look something like this:
-    --     jobs <- H.session (initDbPool st) getJobs
     
-    demoAuthH :: TrebServer DemoAuthH
-    demoAuthH = drupalAuth $ do
-      username <- getUsername
-      return $ object [ "username" .= username ]
+    userH :: TrebServer UserH
+    userH = getUser
 
     ---- Helpers ----
     todoHandler = lift $ left $ err501
 
--- trebEnvGetJobTemplate :: TrebEnv -> JobTemplateId -> Maybe JobTemplate
--- trebEnvGetJobTemplate = flip M.lookup . M.fromList . map (\jt -> (jobTemplateId jt, jt)) . trebEnvJobTemplates
--- 
--- trebEnvGetParamType :: TrebEnv -> JobTemplateId -> Text -> Maybe JobTemplateParameterType
--- trebEnvGetParamType env jtId paramKeyName =
---   M.lookup paramKeyName $ fromMaybe M.empty $ do
---     jt <- trebEnvGetJobTemplate env jtId
---     return $ M.fromList $ map (\p -> (jobTemplateParameterKeyName p, jobTemplateParameterType p)) $ jobTemplateParameters jt
-
-drupalAuth :: TrebServerBase a -> Maybe Text -> TrebServerBase a
+drupalAuth :: (Text -> TrebServerBase a) -> Maybe Text -> TrebServerBase a
 drupalAuth action cookies = do
   let sessionCookie = fmap (fmap snd . find ((== "SESS249b7ba79335e5fe3b5934ff07174a20") . fst) . parseCookies . encodeUtf8) cookies
-  conn <- getDrupalMySQLConn
+  conn <- fromJust <$> trebEnvDrupalMySQLConn <$> ask
   usernames <- maybe
     (lift $ left $ err403 { errBody = encode $ ClientError CEMissingSessionCookie "Drupal session cookie is not found." })
     (liftIO . MySQL.query conn "SELECT name FROM atrium_users INNER JOIN atrium_sessions ON atrium_users.uid = atrium_sessions.uid WHERE atrium_sessions.sid = ?" . MySQL.Only)
@@ -159,9 +127,7 @@ drupalAuth action cookies = do
     [] ->
       lift $ left $ err403 { errBody = encode $ ClientError CEInvalidSessionCookie "Drupal session cookie is found but either invalid or expired." }
     [MySQL.Only username] -> do
-      modify (flip setTrebEnvUsername $ Just username)
-      ret <- action
-      modify (flip setTrebEnvUsername Nothing)
+      ret <- action username
       return ret
     _ ->
       lift $ left err500 { errBody = "SQL query invalid. Returned list of usernames has more than one element." }
@@ -176,11 +142,24 @@ setTrebEnvJobTemplatesTVar env jts = env { trebEnvJobTemplatesTVar = jts }
 setTrebEnvUsername :: TrebEnv -> Maybe Text -> TrebEnv
 setTrebEnvUsername env username = env { trebEnvUsername = username }
 
-getDrupalMySQLConn :: TrebServerBase MySQL.Connection
-getDrupalMySQLConn = fromJust <$> trebEnvDrupalMySQLConn <$> get 
-
-getUsername :: TrebServerBase Text
-getUsername = fromJust <$> trebEnvUsername <$> get 
+--getUsername :: TrebServerBase Text
+--getUsername = fromJust <$> trebEnvUsername <$> get 
 
 trebApiProxy :: Proxy TrebApi
 trebApiProxy = Proxy
+
+getUser :: Text -> TrebServerBase User
+getUser username = do
+    conn <- maybe 
+      (lift $ left $ err500 { errBody = "Drupal MySQL connection is Nothing in environment." })
+      return =<< reader trebEnvDrupalMySQLConn
+    rs <- liftIO $
+        MySQL.query
+            conn
+            "SELECT atrium_users.uid, atrium_users.name, atrium_realname.realname, atrium_users.email INNER JOIN atrium_realname ON atrium_realname.uid = atrium_users.uid WHERE atrium_users.name = ?"
+            (MySQL.Only username)
+    case rs of
+        [(drupalUid, drupalUsername, drupalRealname, drupalEmail)] ->
+            return $ User drupalUid drupalUsername drupalRealname drupalEmail
+        _ ->
+            lift $ left $ err404 { errBody = encode $ ClientError CEUserNotFound "User with username not found." }

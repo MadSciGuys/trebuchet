@@ -214,7 +214,7 @@ instance FromJSON Query where
 --         Auth <$> v .: "auth_username" <*> v .: "auth_password"
 -- 
 instance ToJSON User where
-    toJSON (User i un rn e _) = typeObject "user"
+    toJSON (User i un rn e) = typeObject "user"
             [ "user_id" .= i
             , "user_name" .= un
             , "user_real_name" .= rn
