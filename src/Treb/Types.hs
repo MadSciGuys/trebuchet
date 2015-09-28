@@ -56,6 +56,9 @@ import System.Posix.Types
 import qualified Database.MySQL.Simple as MySQL
 import qualified Database.MySQL.Simple.Types as MySQL
 
+import qualified Hasql as H
+import qualified Hasql.Postgres as HP
+
 import Treb.Filter
 import Treb.BadRegex
 
@@ -512,7 +515,7 @@ data Job = Job {
     -- | Unique job ID.
     jobID         :: Word64
     -- | Job executor.
-  , jobExecutorID :: User
+  , jobExecutorUsername :: T.Text
     -- | Job configuration.
   , jobConfig     :: JobConfig
     -- | Job start time.
@@ -531,6 +534,7 @@ data TrebEnv = TrebEnv
     -- directory.
   , trebEnvDrupalMySQLConn :: Maybe MySQL.Connection
     -- ^ This is intended for authentication.
+  , trebEnvPgPool :: H.Pool HP.Postgres
   , trebEnvUsername :: Maybe T.Text -- ^ Temporary. To be replaced by trebEnvUser
   , trebEnvConfig :: TrebConfig
   }

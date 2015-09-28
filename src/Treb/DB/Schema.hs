@@ -9,7 +9,7 @@ type SchemaInit = forall s. H.Tx HP.Postgres s ()
 
 -- Configure --
 connSettings :: HP.Settings
-connSettings = HP.ParamSettings "10.37.49.24" 5432 "mswan" "mswan" "trebuchet"
+connSettings = HP.ParamSettings "127.0.0.1" 5432 "mswan5" "mswan5" "trebuchet"
 
 poolSettings :: Maybe H.PoolSettings
 poolSettings = H.poolSettings 6 30

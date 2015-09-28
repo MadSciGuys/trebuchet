@@ -1,18 +1,23 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleContexts #-}
 module Main where
 
 import qualified Hasql.Postgres as HP
 import qualified Hasql as H
+import qualified Hasql.Backend as HB
 import qualified Data.Map as M
 import qualified Data.ByteString.Lazy as B
-import qualified Data.ByteString.Char8 as BC
+--import qualified Data.ByteString.Char8 as BC
 import qualified Database.MySQL.Simple as MySQL
 import qualified Database.MySQL.Simple.Types as MySQL
+import qualified Database.MySQL.Simple.QueryParams as MySQL
+import qualified Database.MySQL.Simple.QueryResults as MySQL
 import System.Directory
 import Data.Aeson
 import Data.Proxy
@@ -25,6 +30,7 @@ import System.FilePath
 import Control.Monad
 import Control.Monad.Trans.Either
 import Control.Monad.Trans.Class
+import Control.Monad.Trans.Control
 import Control.Concurrent.STM.TVar
 import Control.Monad.STM
 import Control.Monad.Reader
@@ -107,13 +113,13 @@ trebServer = jobTemplateAllH
     jobTemplateAllH = ask >>= return . trebEnvJobTemplates
 
     jobAllH :: TrebServer JobAllH
-    jobAllH = todoHandler
+    jobAllH = return []
     
     userH :: TrebServer UserH
     userH = getUser
 
     ---- Helpers ----
-    todoHandler = lift $ left $ err501
+    -- todoHandler = lift $ left $ err501
 
 drupalAuth :: (Text -> TrebServerBase a) -> Maybe Text -> TrebServerBase a
 drupalAuth action cookies = do
@@ -150,16 +156,75 @@ trebApiProxy = Proxy
 
 getUser :: Text -> TrebServerBase User
 getUser username = do
-    conn <- maybe 
-      (lift $ left $ err500 { errBody = "Drupal MySQL connection is Nothing in environment." })
-      return =<< reader trebEnvDrupalMySQLConn
-    rs <- liftIO $
-        MySQL.query
-            conn
-            "SELECT atrium_users.uid, atrium_users.name, atrium_realname.realname, atrium_users.mail FROM atrium_users INNER JOIN atrium_realname ON atrium_realname.uid = atrium_users.uid WHERE atrium_users.name = ?"
-            (MySQL.Only username)
+    -- TODO: Change trebEnvDrupalMySQLConn to not be in Maybe.
+    rs <- queryDrupal (MySQL.Only username)
+        "SELECT atrium_users.uid, atrium_users.name, atrium_realname.realname, atrium_users.mail FROM atrium_users INNER JOIN atrium_realname ON atrium_realname.uid = atrium_users.uid WHERE atrium_users.name = ?"
     case rs of
         [(drupalUid, drupalUsername, drupalRealname, drupalEmail)] ->
             return $ User drupalUid drupalUsername drupalRealname drupalEmail
         _ ->
-            lift $ left $ err404 { errBody = encode $ ClientError CEUserNotFound "User with username not found." }
+            serverError "Drupal MySQL connection is Nothing in environment."
+            
+
+serverError :: B.ByteString -> TrebServerBase a
+serverError msg = lift $ left $ err500 { errBody = msg }
+
+clientError :: ClientErrorCode -> Text -> TrebServerBase a
+clientError ce msg =
+  (\ ret -> lift $ left $ ret { errBody = encode $ ClientError ce msg }) $ case ce of
+    CEMissingSessionCookie -> err403
+    CEInvalidSessionCookie -> err403
+    CEUserNotFound         -> err404
+    _                      -> err400
+
+getJobs :: TrebServerBase [Job]
+getJobs = do
+	js <- queryPG listEx [H.stmt|select * from job|]
+	-- NOTE: jobTemplate in JobConfig is of type JobTemplate and not and id.
+	mapM (\(i, oi, ti, n, s, st, et, odi, fr) -> do
+          Job i oi (JobConfig n ti ))
+--getJobs :: TrebServerBase [Job]
+--getJobs = do
+--    pool <- reader trebEnvPostgresPool
+--    (id, ownerId, startTime, endTime, status, failureReason) <- H.session pool $ do
+--        H.singleEx [H.stmt|select from |]
+--    conn <- maybe 
+--      (lift $ left $ err500 { errBody = "Drupal MySQL connection is Nothing in environment." })
+--      return =<< reader trebEnvDrupalMySQLConn
+--    us <- liftIO $ MySQL.query "select name from atrium_users where uid = ?" (MySQL.Only ownerId)
+--    username <- case us of
+--        [MySQL.Only u] ->
+--            return u
+--        _ ->
+--            lift $ left $ err500 { errBody = "User with username not found in Drupal." }
+--    let stat = case status of
+--        "running"  -> Nothing
+--        "success"  -> Just $ Right endTime
+--        "failed"   -> Just $ Left $ JobFailed failureReason endTime
+--        "canceled" -> Just $ Left $ JobCanceled 
+--    Job id ownerId jc startTime 
+
+getDrupalMySQLConn :: TrebServerBase MySQL.Connection
+getDrupalMySQLConn = do
+    maybeConn <- reader trebEnvDrupalMySQLConn
+    maybe 
+      (lift $ left $ err500 { errBody = "Drupal MySQL connection is Nothing in environment." })
+      return
+      maybeConn
+
+getPgPool :: TrebServerBase (H.Pool HP.Postgres)
+getPgPool = reader trebEnvPgPool
+
+queryDrupal :: (MySQL.QueryParams q, MySQL.QueryResults r) => q -> MySQL.Query -> TrebServerBase [r]
+queryDrupal params query = do
+    conn <- getDrupalMySQLConn
+    liftIO $ MySQL.query conn query params
+
+queryPG :: forall r. (forall s. H.Ex HP.Postgres s r) -> H.Stmt HP.Postgres -> TrebServerBase r
+queryPG ex stmt = do
+    pool <- getPgPool
+    res <- liftIO $ H.session pool (H.tx Nothing (ex stmt :: H.Tx HP.Postgres s r) :: H.Session HP.Postgres IO r)
+    either
+        (lift . left . const err500 { errBody = "Postgres failure." }) -- TODO: errBody = B.toStrict $ encodeUtf8 $ pack $ show err
+        return
+    	res
