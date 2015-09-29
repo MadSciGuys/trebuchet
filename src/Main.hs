@@ -1,26 +1,16 @@
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE PolyKinds #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE DataKinds, PolyKinds, RankNTypes, TypeFamilies, TypeOperators,
+             ScopedTypeVariables, OverloadedStrings, FlexibleContexts,
+             QuasiQuotes #-}
 module Main where
 
-import qualified Hasql.Postgres as HP
-import qualified Hasql as H
-import qualified Hasql.Backend as HB
-import qualified Data.Map as M
 import qualified Data.ByteString.Lazy as B
---import qualified Data.ByteString.Char8 as BC
+import qualified Data.Map as M
+import qualified Data.Vector as V
 import qualified Database.MySQL.Simple as MySQL
-import qualified Database.MySQL.Simple.Types as MySQL
 import qualified Database.MySQL.Simple.QueryParams as MySQL
 import qualified Database.MySQL.Simple.QueryResults as MySQL
-import qualified Data.Vector as V
-import System.Directory
+import qualified Hasql as H
+import qualified Hasql.Postgres as HP
 import Data.Word
 import Data.Aeson
 import Data.Proxy
@@ -28,68 +18,21 @@ import Network.Wai
 import Network.Wai.Handler.Warp
 import Network.Wai.Handler.WarpTLS
 import Data.Maybe
-import Data.Monoid
-import System.FilePath
-import Control.Monad
 import Control.Monad.Trans.Either
 import Control.Monad.Trans.Class
-import Control.Monad.Trans.Control
 import Control.Concurrent.STM.TVar
-import Control.Monad.STM
 import Control.Monad.Reader
-import Control.Monad.IO.Class
-import Control.Monad.State.Class
-import System.INotify
-import Control.Monad.State.Lazy
-import Data.Text (Text, pack)
-import Control.Concurrent
+import Data.Text (Text)
 import Servant
-import Servant.Server
-import Control.Exception
-import System.IO.Error
 import Data.List (find)
 import Web.Cookie
 import Data.Text.Encoding
-import System.Environment (getArgs)
-import System.Exit
-import Text.Read (readEither)
 import Data.Bool
-import Data.Bits (xor)
-import Treb.Combinators
 import Treb.Config
 import Treb.Types
+import Treb.Routes
 import Data.Time.Clock
 import Data.Functor.Identity
-
----- Servant API Layout Types ----
-type TrebApi = JobTemplateAllH :<|> JobCreateH :<|> UserH
-
-type JobTemplateAllH =
-  "job_template" :> "all"
-    :> Get '[JSON] [JobTemplate]
-
-type JobAllH =
-  "job" :> "all"
-    :> Get '[JSON] [Job]
-
-type JobCreateH =
-  "job" :> "create"
-    :> ReqBody '[JSON] JobConfig
-    :> Header "Cookie" Text
-    :> Post '[JSON] Job
-
-type UserH =
-  "user" :> Capture "username" Text
-  :> Get '[JSON] User
-
-type DemoAuthH =
-  "current_username"
-    :> Header "Cookie" Text
-    :> Get '[JSON] Value
-
----- Other Servant Related Types ----
-type TrebServerBase = ReaderT TrebEnv (EitherT ServantErr IO)
-type TrebServer layout = ServerT layout TrebServerBase
 
 ---- Important Functions ----
 main :: IO ()
@@ -175,46 +118,9 @@ trebServer = jobTemplateAllH
               VectorArg v       -> do
                 childArgIds <- V.mapM (jobArgCreate jobId Nothing) v
                 runIdentity <$> queryPG H.singleEx (insertVector jobId name childArgIds)
-              _ -> error "TODO: Job arg create handler for DataBlockName."
               
-            
---  , [H.stmt| create table "job_argument"
---      ( "id"             bigserial primary key
---      , "job_id"         bigint not null
---      , "name"           varchar not null
---      , "type"           job_argument_type_t
---      , "value_bool"     boolean
---      , "value_string"   varchar
---      , "value_int"      bigint
---      , "value_real"     double precision
---      , "value_datetime" timestamptz
---      , "value_vector"   bigint[] ) |] ]
---data JobArg = -- | Boolean argument.
---              BoolArg   Bool
---              -- | Integral argument.
---            | IntArg    Integer
---              -- | Real number argument.
---            | RealArg   Double
---              -- | String argument.
---            | StringArg T.Text
---              -- | Enumeration argument.
---            | EnumArg T.Text
---              -- | String argument recognized by provided regex.
---            | RegexArg T.Text
---              -- | 'DataBlockName' argument.
---            | DataBlockNameArg DataBlockName
---              -- | Pair of 'DataBlockName' and 'DataBlockField'.
---            | DataBlockFieldArg DataBlockName DataBlockField
---              -- | Datablock tag argument.
---            | DataBlockTagArg T.Text
---              -- | Vector argument.
---            | VectorArg (V.Vector JobArg)
-    
     userH :: TrebServer UserH
     userH = getUser
-
-    ---- Helpers ----
-    -- todoHandler = lift $ left $ err501
 
 drupalAuth :: (User -> TrebServerBase a) -> Maybe Text -> TrebServerBase a
 drupalAuth action cookies = do
@@ -243,15 +149,11 @@ setTrebEnvJobTemplatesTVar env jts = env { trebEnvJobTemplatesTVar = jts }
 setTrebEnvUsername :: TrebEnv -> Maybe Text -> TrebEnv
 setTrebEnvUsername env username = env { trebEnvUsername = username }
 
---getUsername :: TrebServerBase Text
---getUsername = fromJust <$> trebEnvUsername <$> get 
-
 trebApiProxy :: Proxy TrebApi
 trebApiProxy = Proxy
 
 getUser :: Text -> TrebServerBase User
 getUser username = do
-    -- TODO: Change trebEnvDrupalMySQLConn to not be in Maybe.
     rs <- queryDrupal (MySQL.Only username)
         "SELECT atrium_users.uid, atrium_users.name, atrium_realname.realname, atrium_users.mail FROM atrium_users INNER JOIN atrium_realname ON atrium_realname.uid = atrium_users.uid WHERE atrium_users.name = ?"
     case rs of
@@ -270,15 +172,14 @@ clientError ce msg =
     CEMissingSessionCookie -> err403
     CEInvalidSessionCookie -> err403
     CEUserNotFound         -> err404
-    _                      -> err400
 
 --getJobs :: TrebServerBase [Job]
 --getJobs = do
-	--[(i, oi, ti, n, s, st, et, odi, fr)]
+--[(i, oi, ti, n, s, st, et, odi, fr)]
         --[(i :: Word64, b :: Word64)] <- queryPG H.listEx [H.stmt|select * from job|]
         --return []
-	-- NOTE: jobTemplate in JobConfig is of type JobTemplate and not and id.
-	--mapM (\(i, oi, ti, n, s, st, et, odi, fr) -> do
+-- NOTE: jobTemplate in JobConfig is of type JobTemplate and not and id.
+--mapM (\(i, oi, ti, n, s, st, et, odi, fr) -> do
         --  Job i oi (JobConfig n ti ))
 --getJobs :: TrebServerBase [Job]
 --getJobs = do
@@ -333,4 +234,4 @@ queryPG ex stmt = do
     either
         (lift . left . const err500 { errBody = "Postgres failure." }) -- TODO: errBody = B.toStrict $ encodeUtf8 $ pack $ show err
         return
-    	res
+        res
