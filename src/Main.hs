@@ -6,6 +6,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE QuasiQuotes #-}
 module Main where
 
 import qualified Hasql.Postgres as HP
@@ -19,6 +20,7 @@ import qualified Database.MySQL.Simple.Types as MySQL
 import qualified Database.MySQL.Simple.QueryParams as MySQL
 import qualified Database.MySQL.Simple.QueryResults as MySQL
 import System.Directory
+import Data.Word
 import Data.Aeson
 import Data.Proxy
 import Network.Wai
@@ -55,9 +57,11 @@ import Data.Bits (xor)
 import Treb.Combinators
 import Treb.Config
 import Treb.Types
+import Data.Time.Clock
+import Data.Functor.Identity
 
 ---- Servant API Layout Types ----
-type TrebApi = JobTemplateAllH :<|> JobAllH :<|> UserH
+type TrebApi = JobTemplateAllH :<|> JobCreateH :<|> UserH
 
 type JobTemplateAllH =
   "job_template" :> "all"
@@ -66,6 +70,12 @@ type JobTemplateAllH =
 type JobAllH =
   "job" :> "all"
     :> Get '[JSON] [Job]
+
+type JobCreateH =
+  "job" :> "create"
+    :> ReqBody '[JSON] JobConfig
+    :> Header "Cookie" Text
+    :> Post '[JSON] Job
 
 type UserH =
   "user" :> Capture "username" Text
@@ -105,15 +115,33 @@ trebApp = serve trebApiProxy . flip enter trebServer . runReaderTNat
 
 trebServer :: TrebServer TrebApi
 trebServer = jobTemplateAllH
-        :<|> jobAllH
+        :<|> jobCreateH
         :<|> userH
   where
     ---- Handlers ----
     jobTemplateAllH :: TrebServer JobTemplateAllH
     jobTemplateAllH = ask >>= return . trebEnvJobTemplates
 
-    jobAllH :: TrebServer JobAllH
-    jobAllH = return []
+    jobCreateH :: TrebServer JobCreateH
+    jobCreateH jc = drupalAuth $ \user -> do
+        now <- liftIO getCurrentTime
+        jobId <- queryPG H.singleEx $
+            [H.stmt|insert into job
+                    ( owner_id
+                    , template_id
+                    , name
+                    , status
+                    , start_time
+                    , end_time
+                    , output_datablock_id
+                    , failure_reason )
+                    values (?, ?, ?, 'running', ?, NULL, NULL, NULL)
+                    returning id |]
+                      (userID user)
+                      (jobTemplateId $ jobConfigTemplate jc)
+                      (jobConfigName jc)
+                      now
+        return $ Job (runIdentity jobId) (userName user) jc now Nothing Nothing
     
     userH :: TrebServer UserH
     userH = getUser
@@ -121,19 +149,19 @@ trebServer = jobTemplateAllH
     ---- Helpers ----
     -- todoHandler = lift $ left $ err501
 
-drupalAuth :: (Text -> TrebServerBase a) -> Maybe Text -> TrebServerBase a
+drupalAuth :: (User -> TrebServerBase a) -> Maybe Text -> TrebServerBase a
 drupalAuth action cookies = do
   let sessionCookie = fmap (fmap snd . find ((== "SESS249b7ba79335e5fe3b5934ff07174a20") . fst) . parseCookies . encodeUtf8) cookies
   conn <- fromJust <$> trebEnvDrupalMySQLConn <$> ask
-  usernames <- maybe
+  users <- maybe
     (lift $ left $ err403 { errBody = encode $ ClientError CEMissingSessionCookie "Drupal session cookie is not found." })
-    (liftIO . MySQL.query conn "SELECT name FROM atrium_users INNER JOIN atrium_sessions ON atrium_users.uid = atrium_sessions.uid WHERE atrium_sessions.sid = ?" . MySQL.Only)
+    (liftIO . MySQL.query conn "SELECT atrium_users.uid, atrium_users.name, atrium_realname.realname, atrium_users.mail FROM atrium_users INNER JOIN atrium_sessions ON atrium_users.uid = atrium_sessions.uid INNER JOIN atrium_realname ON atrium_users.uid = atrium_realname.uid WHERE atrium_sessions.sid = ?" . MySQL.Only)
     sessionCookie
-  case usernames of
+  case users of
     [] ->
       lift $ left $ err403 { errBody = encode $ ClientError CEInvalidSessionCookie "Drupal session cookie is found but either invalid or expired." }
-    [MySQL.Only username] -> do
-      ret <- action username
+    [(uid, username, realname, email)] -> do
+      ret <- action $ User uid username realname email
       return ret
     _ ->
       lift $ left err500 { errBody = "SQL query invalid. Returned list of usernames has more than one element." }
@@ -177,12 +205,14 @@ clientError ce msg =
     CEUserNotFound         -> err404
     _                      -> err400
 
-getJobs :: TrebServerBase [Job]
-getJobs = do
-	js <- queryPG listEx [H.stmt|select * from job|]
+--getJobs :: TrebServerBase [Job]
+--getJobs = do
+	--[(i, oi, ti, n, s, st, et, odi, fr)]
+        --[(i :: Word64, b :: Word64)] <- queryPG H.listEx [H.stmt|select * from job|]
+        --return []
 	-- NOTE: jobTemplate in JobConfig is of type JobTemplate and not and id.
-	mapM (\(i, oi, ti, n, s, st, et, odi, fr) -> do
-          Job i oi (JobConfig n ti ))
+	--mapM (\(i, oi, ti, n, s, st, et, odi, fr) -> do
+        --  Job i oi (JobConfig n ti ))
 --getJobs :: TrebServerBase [Job]
 --getJobs = do
 --    pool <- reader trebEnvPostgresPool
@@ -219,6 +249,15 @@ queryDrupal :: (MySQL.QueryParams q, MySQL.QueryResults r) => q -> MySQL.Query -
 queryDrupal params query = do
     conn <- getDrupalMySQLConn
     liftIO $ MySQL.query conn query params
+
+--queryPGTx :: H.Tx HP.Postgres s r -> TrebServerBase r
+--queryPGTx tx' = do
+--    pool <- getPgPool
+--    res <- liftIO $ H.session pool (H.tx Nothing tx' :: H.Session HP.Postgres IO r)
+--    either
+--        (lift . left . const err500 { errBody = "Postgres failure." }) -- TODO: errBody = B.toStrict $ encodeUtf8 $ pack $ show err
+--        return
+--    	res
 
 queryPG :: forall r. (forall s. H.Ex HP.Postgres s r) -> H.Stmt HP.Postgres -> TrebServerBase r
 queryPG ex stmt = do

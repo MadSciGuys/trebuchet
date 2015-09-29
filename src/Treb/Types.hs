@@ -461,20 +461,23 @@ data JobParam = JobParam {
   , jobParamKeyName  :: T.Text
   , jobParamDesc     :: Maybe T.Text
   , jobParamDefault  :: Maybe JobArg
+  , jobParamCategory :: T.Text
   , jobParamArgType  :: JobArgType
   } deriving (Eq, Ord, Show)
 
 -- | A job template, uniquely idenfifying a runnable job and its argument
 --   requirements.
 data JobTemplate = JobTemplate {
+    -- | Unique identifier of a job template.
+    jobTemplateId     :: Word64
     -- | Job template name.
-    jobTemplateName   :: T.Text
+  , jobTemplateName   :: T.Text
   , jobTemplateDesc   :: Maybe T.Text
     -- | Job template parameter set, specifiying which arguments /may/ be
     --   present, with optional default vaule.
   , jobTemplateParams :: M.Map T.Text JobParam
     -- | Job argument constraints.
-  , jobTemplateConstr :: JobArgVal
+  , jobTemplateConstr :: Maybe JobArgVal
     -- | Job template datablock tags (first tuple element in 'jobDataBlocks').
   , jobTemplateDBTags :: [T.Text]
   } deriving (Eq, Ord, Show)
@@ -484,14 +487,14 @@ data JobTemplate = JobTemplate {
 --   constructors are assumed to have performed this check correctly.
 data JobConfig = JobConfig {
     -- | Optional job configuration name.
-    jobConfigName :: Maybe T.Text
+    jobConfigName       :: Maybe T.Text
     -- | Job template.
-  , jobTemplate   :: JobTemplate
+  , jobConfigTemplate   :: JobTemplate
     -- | Job arguments.
-  , jobArgs       :: M.Map T.Text JobArg
+  , jobConfigArgs       :: M.Map T.Text JobArg
     -- | The datablocks to be fed to the job, each with a unique(within one
     --   'JobConfig') textual tag and optional 'query' applied.
-  , jobDataBlocks :: [(Maybe T.Text, DataBlockName, Maybe Query)]
+  , jobConfigDataBlocks :: [(Maybe T.Text, DataBlockName, Maybe Query)]
   } deriving (Eq, Ord, Show)
 
 -- | Job error.
