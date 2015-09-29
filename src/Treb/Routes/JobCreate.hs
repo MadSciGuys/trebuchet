@@ -8,21 +8,18 @@ Stability:   Provisional
 Portability: POSIX
 -}
 
-{-# LANGUAGE DataKinds, PolyKinds, RankNTypes, TypeFamilies, TypeOperators,
-             ScopedTypeVariables, OverloadedStrings, FlexibleContexts,
-             QuasiQuotes #-}
+{-# LANGUAGE DataKinds, TypeOperators, OverloadedStrings #-}
 
-module Treb.Routes.JobCreate ( JobCreate, jobCreate ) where
+module Treb.Routes.JobCreate ( JobCreateH, jobCreate ) where
 
-import Servant
 import Treb.Routes.Types
 
 ---- Route-Specific Type ----
-type JobCreate =
+type JobCreateH =
     "job" :> "create"
         :> ReqBody '[JSON] JobConfig
         :> DrupalAuth
         :> Post '[JSON] Job
 
-jobCreate :: TrebServer JobCreate
+jobCreate :: TrebServer JobCreateH
 jobCreate = undefined

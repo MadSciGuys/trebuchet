@@ -8,19 +8,16 @@ Stability:   Provisional
 Portability: POSIX
 -}
 
-{-# LANGUAGE DataKinds, PolyKinds, RankNTypes, TypeFamilies, TypeOperators,
-             ScopedTypeVariables, OverloadedStrings, FlexibleContexts,
-             QuasiQuotes #-}
+{-# LANGUAGE DataKinds, TypeOperators, OverloadedStrings #-}
 
-module Treb.Routes.DataBlockFilter ( DataBlockFilter, dataBlockFilter ) where
-
+module Treb.Routes.DataBlockFilter ( DataBlockFilterH, dataBlockFilter ) where
 import Treb.Routes.Types
 
 ---- Route-Specific Type ----
-type DataBlockFilter =
+type DataBlockFilterH =
     "datablock" :> "filter"
         :> ReqBody '[JSON] DataBlockSetFilter
         :> Post '[JSON] DataBlock
 
-dataBlockFilter :: TrebServer DataBlockFilter
+dataBlockFilter :: TrebServer DataBlockFilterH
 dataBlockFilter = undefined

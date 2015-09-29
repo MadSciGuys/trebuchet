@@ -8,20 +8,16 @@ Stability:   Provisional
 Portability: POSIX
 -}
 
-{-# LANGUAGE DataKinds, PolyKinds, RankNTypes, TypeFamilies, TypeOperators,
-             ScopedTypeVariables, OverloadedStrings, FlexibleContexts,
-             QuasiQuotes #-}
+{-# LANGUAGE DataKinds, TypeOperators, OverloadedStrings #-}
 
-module Treb.Routes.DataBlockCreate ( DataBlockCreate, dataBlockCreate ) where
-
-import Servant
+module Treb.Routes.DataBlockCreate ( DataBlockCreateH, dataBlockCreate ) where
 import Treb.Routes.Types
 
 ---- Route-Specific Type ----
-type DataBlockCreate =
+type DataBlockCreateH =
     "datablock" :> "create"
         :> ReqBody '[JSON] DataBlockCreate
         :> Post '[JSON] DataBlock
 
-dataBlockCreate :: TrebServer DataBlockCreate
+dataBlockCreate :: TrebServer DataBlockCreateH
 dataBlockCreate = undefined

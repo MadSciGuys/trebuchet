@@ -8,18 +8,17 @@ Stability:   Provisional
 Portability: POSIX
 -}
 
-{-# LANGUAGE DataKinds, PolyKinds, RankNTypes, TypeFamilies, TypeOperators,
-             ScopedTypeVariables, OverloadedStrings, FlexibleContexts,
-             QuasiQuotes #-}
+{-# LANGUAGE DataKinds, TypeOperators, OverloadedStrings #-}
 
-module Treb.Routes.JobFilter ( JobFilter, jobFilter ) where
+module Treb.Routes.JobFilter ( JobFilterH, jobFilter ) where
 
-import Servant
 import Treb.Routes.Types
 
 ---- Route-Specific Type ----
-type JobFilter =
-    -- TODO
+type JobFilterH =
+    "job" :> "filter"
+        :> ReqBody '[JSON] JobSetFilter
+        :> Post '[JSON] Job
 
-jobFilter :: TrebServer JobFilter
+jobFilter :: TrebServer JobFilterH
 jobFilter = undefined

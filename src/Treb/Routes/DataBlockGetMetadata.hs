@@ -8,18 +8,16 @@ Stability:   Provisional
 Portability: POSIX
 -}
 
-{-# LANGUAGE DataKinds, PolyKinds, RankNTypes, TypeFamilies, TypeOperators,
-             ScopedTypeVariables, OverloadedStrings, FlexibleContexts,
-             QuasiQuotes #-}
+{-# LANGUAGE DataKinds, TypeOperators, OverloadedStrings #-}
 
-module Treb.Routes.DataBlockGetMetadata ( DataBlockGetMetadata, dataBlockGetMetadata ) where
+module Treb.Routes.DataBlockGetMetadata ( DataBlockGetMetadataH, dataBlockGetMetadata ) where
 
-import Servant
 import Treb.Routes.Types
 
 ---- Route-Specific Type ----
-type DataBlockGetMetadata =
-    -- TODO
+type DataBlockGetMetadataH =
+    "datablock" :> Capture "datablock_id" DataBlockId :> "metadata"
+        :> Get '[JSON] DataBlock
 
-dataBlockGetMetadata :: TrebServer DataBlockGetMetadata
+dataBlockGetMetadata :: TrebServer DataBlockGetMetadataH
 dataBlockGetMetadata = undefined

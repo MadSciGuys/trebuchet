@@ -8,19 +8,17 @@ Stability:   Provisional
 Portability: POSIX
 -}
 
-{-# LANGUAGE DataKinds, PolyKinds, RankNTypes, TypeFamilies, TypeOperators,
-             ScopedTypeVariables, OverloadedStrings, FlexibleContexts,
-             QuasiQuotes #-}
+{-# LANGUAGE DataKinds, TypeOperators, OverloadedStrings #-}
 
-module Treb.Routes.UserFilter ( UserFilter, userFilter ) where
+module Treb.Routes.UserFilter ( UserFilterH, userFilter ) where
 
 import Treb.Routes.Types
 
 ---- Route-Specific Type ----
-type UserFilter =
+type UserFilterH =
     -- TODO: Implement actual User filtering and then change this type to handle the /user/filter URL.
     "user" :> "all"
         :> Get '[JSON] [User]
 
-userFilter :: TrebServer UserFilter
+userFilter :: TrebServer UserFilterH
 userFilter = undefined

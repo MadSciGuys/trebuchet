@@ -8,20 +8,17 @@ Stability:   Provisional
 Portability: POSIX
 -}
 
-{-# LANGUAGE DataKinds, PolyKinds, RankNTypes, TypeFamilies, TypeOperators,
-             ScopedTypeVariables, OverloadedStrings, FlexibleContexts,
-             QuasiQuotes #-}
+{-# LANGUAGE DataKinds, TypeOperators, OverloadedStrings #-}
 
-module Treb.Routes.DataBlockPutMetadata ( DataBlockPutMetadata, dataBlockPutMetadata ) where
+module Treb.Routes.DataBlockPutMetadata ( DataBlockPutMetadataH, dataBlockPutMetadata ) where
 
-import Servant
 import Treb.Routes.Types
 
 ---- Route-Specific Type ----
-type DataBlockPutMetadata =
+type DataBlockPutMetadataH =
     "datablock" :> Capture "datablock_id" DataBlockId :> "metadata"
         :> ReqBody '[JSON] DataBlockFilter
         :> Put '[JSON] DataBlock
 
-dataBlockPutMetadata :: TrebServer DataBlockPutMetadata
+dataBlockPutMetadata :: TrebServer DataBlockPutMetadataH
 dataBlockPutMetadata = undefined

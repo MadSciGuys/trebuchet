@@ -8,20 +8,18 @@ Stability:   Provisional
 Portability: POSIX
 -}
 
-{-# LANGUAGE DataKinds, PolyKinds, RankNTypes, TypeFamilies, TypeOperators,
-             ScopedTypeVariables, OverloadedStrings, FlexibleContexts,
-             QuasiQuotes #-}
+{-# LANGUAGE DataKinds, TypeOperators, OverloadedStrings #-}
 
-module Treb.Routes.JobTemplateFilter ( JobTemplateFilter, jobTemplateFilter ) where
+module Treb.Routes.JobTemplateFilter ( JobTemplateFilterH, jobTemplateFilter ) where
 
 import Servant
 import Treb.Routes.Types
 
 ---- Route-Specific Type ----
-type JobTemplateFilter =
+type JobTemplateFilterH =
     -- TODO: Implement actual JobTemplate filtering and then change this type to handle the /job_template/filter URL.
     "job_template" :> "all"
         :> Get '[JSON] [JobTemplate]
 
-jobTemplateFilter :: TrebServer JobTemplateFilter
+jobTemplateFilter :: TrebServer JobTemplateFilterH
 jobTemplateFilter = undefined

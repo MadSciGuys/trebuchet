@@ -8,14 +8,22 @@ Stability:   Provisional
 Portability: POSIX
 -}
 
-{-# LANGUAGE DataKinds, PolyKinds, RankNTypes, TypeFamilies, TypeOperators,
-             ScopedTypeVariables, OverloadedStrings, FlexibleContexts,
-             QuasiQuotes #-}
+{-# LANGUAGE DataKinds, TypeOperators, OverloadedStrings #-}
 
-module Treb.Routes.Types where
+module Treb.Routes.Types
+    ( module Servant
+    , module Servant.Server
+    , TrebServer
+    , TrebServerBase
+    , DrupalAuth ) where
+
+import Control.Monad.Reader (ReaderT)
+import Control.Monad.Trans.Either (EitherT)
+import Data.Text (Text)
+import Treb.Types (TrebEnv)
 
 import Servant
-import Data.Text (Text)
+import Servant.Server
 
 ---- Core Types ----
 type TrebServer layout = ServerT layout TrebServerBase

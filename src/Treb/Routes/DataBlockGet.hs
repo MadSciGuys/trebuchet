@@ -8,19 +8,16 @@ Stability:   Provisional
 Portability: POSIX
 -}
 
-{-# LANGUAGE DataKinds, PolyKinds, RankNTypes, TypeFamilies, TypeOperators,
-             ScopedTypeVariables, OverloadedStrings, FlexibleContexts,
-             QuasiQuotes #-}
+{-# LANGUAGE DataKinds, TypeOperators, OverloadedStrings #-}
 
-module Treb.Routes.DataBlockGet ( DataBlockGet, dataBlockGet ) where
+module Treb.Routes.DataBlockGet ( DataBlockGetH, dataBlockGet ) where
 
-import Servant
 import Treb.Routes.Types
 
 ---- Route-Specific Type ----
-type DataBlockGet =
+type DataBlockGetH =
     "datablock" :> Capture "datablock_id" DataBlockId
         :> Get '[JSON] DataBlock
 
-dataBlockGet :: TrebServer DataBlockGet
+dataBlockGet :: TrebServer DataBlockGetH
 dataBlockGet = undefined

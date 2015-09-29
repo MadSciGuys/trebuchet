@@ -8,19 +8,16 @@ Stability:   Provisional
 Portability: POSIX
 -}
 
-{-# LANGUAGE DataKinds, PolyKinds, RankNTypes, TypeFamilies, TypeOperators,
-             ScopedTypeVariables, OverloadedStrings, FlexibleContexts,
-             QuasiQuotes #-}
+{-# LANGUAGE DataKinds, TypeOperators, OverloadedStrings #-}
 
-module Treb.Routes.UserGet ( UserGet, userGet ) where
+module Treb.Routes.UserGet ( UserGetH, userGet ) where
 
-import Servant
 import Treb.Routes.Types
 
 ---- Route-Specific Type ----
-type UserGet =
+type UserGetH =
     "user" :> Capture "username" Text
         :> Get '[JSON] User
 
-userGet :: TrebServer UserGet
+userGet :: TrebServer UserGetH
 userGet = undefined
