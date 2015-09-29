@@ -423,7 +423,7 @@ data JobArgType = -- | Boolean argument.
 data JobArg = -- | Boolean argument.
               BoolArg   Bool
               -- | Integral argument.
-            | IntArg    Integer
+            | IntArg    Word64
               -- | Real number argument.
             | RealArg   Double
               -- | String argument.
@@ -433,9 +433,9 @@ data JobArg = -- | Boolean argument.
               -- | String argument recognized by provided regex.
             | RegexArg T.Text
               -- | 'DataBlockName' argument.
-            | DataBlockNameArg DataBlockName
+              -- TODO: DataBlockNameArg DataBlockName
               -- | Pair of 'DataBlockName' and 'DataBlockField'.
-            | DataBlockFieldArg DataBlockName DataBlockField
+              -- TODO: DataBlockFieldArg DataBlockName DataBlockField
               -- | Datablock tag argument.
             | DataBlockTagArg T.Text
               -- | Vector argument.
@@ -489,7 +489,7 @@ data JobConfig = JobConfig {
     -- | Optional job configuration name.
     jobConfigName       :: Maybe T.Text
     -- | Job template.
-  , jobConfigTemplate   :: JobTemplate
+  , jobConfigTemplateId :: Word64
     -- | Job arguments.
   , jobConfigArgs       :: M.Map T.Text JobArg
     -- | The datablocks to be fed to the job, each with a unique(within one

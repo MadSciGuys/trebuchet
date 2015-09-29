@@ -19,6 +19,7 @@ import qualified Database.MySQL.Simple as MySQL
 import qualified Database.MySQL.Simple.Types as MySQL
 import qualified Database.MySQL.Simple.QueryParams as MySQL
 import qualified Database.MySQL.Simple.QueryResults as MySQL
+import qualified Data.Vector as V
 import System.Directory
 import Data.Word
 import Data.Aeson
@@ -125,7 +126,7 @@ trebServer = jobTemplateAllH
     jobCreateH :: TrebServer JobCreateH
     jobCreateH jc = drupalAuth $ \user -> do
         now <- liftIO getCurrentTime
-        jobId <- queryPG H.singleEx $
+        Identity jobId <- queryPG H.singleEx $
             [H.stmt|insert into job
                     ( owner_id
                     , template_id
@@ -138,10 +139,76 @@ trebServer = jobTemplateAllH
                     values (?, ?, ?, 'running', ?, NULL, NULL, NULL)
                     returning id |]
                       (userID user)
-                      (jobTemplateId $ jobConfigTemplate jc)
+                      (jobConfigTemplateId jc)
                       (jobConfigName jc)
                       now
-        return $ Job (runIdentity jobId) (userName user) jc now Nothing Nothing
+        mapM_ (uncurry $ jobArgCreate jobId . Just) (M.toList $ jobConfigArgs jc)
+
+        return $ Job jobId (userName user) jc now Nothing Nothing
+        where
+          insertBool     :: Word64 -> Maybe Text -> Bool -> H.Stmt HP.Postgres
+          insertBool     = [H.stmt|insert into job_argument (job_id, name, type, value_bool) values (?,?,'bool',?)|]
+          insertString   :: Word64 -> Maybe Text -> Text -> H.Stmt HP.Postgres
+          insertString   = [H.stmt|insert into job_argument (job_id, name, type, value_string) values (?,?,'string',?)|]
+          insertInt      :: Word64 -> Maybe Text -> Word64 -> H.Stmt HP.Postgres
+          insertInt      = [H.stmt|insert into job_argument (job_id, name, type, value_int) values (?,?,'int',?)|]
+          insertReal     :: Word64 -> Maybe Text -> Double -> H.Stmt HP.Postgres
+          insertReal     = [H.stmt|insert into job_argument (job_id, name, type, value_real) values (?,?,'real',?)|]
+          insertDateTime :: Word64 -> Maybe Text -> UTCTime -> H.Stmt HP.Postgres
+          insertDateTime = [H.stmt|insert into job_argument (job_id, name, type, value_datetime) values (?,?,'datetime',?)|]
+          insertVector   :: Word64 -> Maybe Text -> V.Vector Word64 -> H.Stmt HP.Postgres
+          insertVector   = [H.stmt|insert into job_argument (job_id, name, type, value_vector) values (?,?,'vector',?)|]
+
+          q :: H.Stmt HP.Postgres -> TrebServerBase Word64
+          q = fmap runIdentity . queryPG H.singleEx
+
+          jobArgCreate :: Word64 -> Maybe Text -> JobArg -> TrebServerBase Word64
+          jobArgCreate jobId name arg =
+            case arg of
+              BoolArg b         -> q $ insertBool   jobId name b
+              IntArg i          -> q $ insertInt    jobId name i
+              RealArg r         -> q $ insertReal   jobId name r
+              StringArg s       -> q $ insertString jobId name s
+              EnumArg s         -> q $ insertString jobId name s
+              RegexArg s        -> q $ insertString jobId name s
+              DataBlockTagArg s -> q $ insertString jobId name s
+              VectorArg v       -> do
+                childArgIds <- V.mapM (jobArgCreate jobId Nothing) v
+                runIdentity <$> queryPG H.singleEx (insertVector jobId name childArgIds)
+              _ -> error "TODO: Job arg create handler for DataBlockName."
+              
+            
+--  , [H.stmt| create table "job_argument"
+--      ( "id"             bigserial primary key
+--      , "job_id"         bigint not null
+--      , "name"           varchar not null
+--      , "type"           job_argument_type_t
+--      , "value_bool"     boolean
+--      , "value_string"   varchar
+--      , "value_int"      bigint
+--      , "value_real"     double precision
+--      , "value_datetime" timestamptz
+--      , "value_vector"   bigint[] ) |] ]
+--data JobArg = -- | Boolean argument.
+--              BoolArg   Bool
+--              -- | Integral argument.
+--            | IntArg    Integer
+--              -- | Real number argument.
+--            | RealArg   Double
+--              -- | String argument.
+--            | StringArg T.Text
+--              -- | Enumeration argument.
+--            | EnumArg T.Text
+--              -- | String argument recognized by provided regex.
+--            | RegexArg T.Text
+--              -- | 'DataBlockName' argument.
+--            | DataBlockNameArg DataBlockName
+--              -- | Pair of 'DataBlockName' and 'DataBlockField'.
+--            | DataBlockFieldArg DataBlockName DataBlockField
+--              -- | Datablock tag argument.
+--            | DataBlockTagArg T.Text
+--              -- | Vector argument.
+--            | VectorArg (V.Vector JobArg)
     
     userH :: TrebServer UserH
     userH = getUser

@@ -302,14 +302,6 @@ instance ToJSON JobArg where
             [ "job_arg_type" .= "regex_arg"
             , "job_arg_value" .= s
             ]
-    toJSON (DataBlockNameArg n) = typeObject "job_arg"
-            [ "job_arg_type" .= "datablock_name_arg"
-            , "job_arg_value" .= n
-            ]
-    toJSON (DataBlockFieldArg n f) = typeObject "job_arg"
-            [ "job_arg_type" .= "datablock_field_arg"
-            , "job_arg_value" .= (n, f)
-            ]
     toJSON (DataBlockTagArg t) = typeObject "job_arg"
             [ "job_arg_type" .= "datablock_tag_arg"
             , "job_arg_value" .= t
@@ -329,8 +321,6 @@ instance FromJSON JobArg where
                   "string_arg"          -> StringArg <$> v .: "job_arg_value"
                   "enum_arg"            -> EnumArg <$> v .: "job_arg_value"
                   "regex_arg"           -> RegexArg <$> v .: "job_arg_value"
-                  "datablock_name_arg"  -> DataBlockNameArg <$> v .: "job_arg_value"
-                  "datablock_field_arg" -> ((`ap` snd) . (. fst)) DataBlockFieldArg <$> v .: "job_arg_value"
                   "datablock_tag_arg"   -> DataBlockTagArg <$> v .: "job_arg_value"
                   "vector_arg" -> VectorArg <$> v .: "job_arg_value"
                   _            -> fail "bad job_arg_type in job_arg"
@@ -431,29 +421,28 @@ instance ToJSON JobParam where
 instance FromJSON JobParam where
     parseJSON (Object v) = do
         "parameter" <- v .: "type"
-        JobParam <$> v .: "display_name"
-                 <*> v .: "key_name"
+        JobParam <$> v .:  "display_name"
+                 <*> v .:  "key_name"
                  <*> v .:? "description"
                  <*> v .:? "default"
-                 <*> v .: "category"
-                 <*> v .: "parameter_type"
+                 <*> v .:  "category"
+                 <*> v .:  "parameter_type"
 
 instance ToJSON JobConfig where
     toJSON (JobConfig n t a d) = typeObject "job_config"
-            [ "job_config_name" .= n
-            , "job_config_template" .= t
-            , "job_config_arguments" .= a
-            , "job_config_payload" .= d
+            [ "job_config_name"        .= n
+            , "job_config_template_id" .= t
+            , "job_config_arguments"   .= a
+            , "job_config_payload"     .= d
             ]
 
 instance FromJSON JobConfig where
     parseJSON (Object v) = do
         "job_config" <- v .: "type"
-        JobConfig <$>
-            v .:? "job_config_name"     <*>
-            v .: "job_config_template"  <*>
-            v .: "job_config_arguments" <*>
-            v .: "job_config_payload"
+        JobConfig <$> v .:? "job_config_name"
+                  <*> v .: "job_config_template_id"
+                  <*> v .: "job_config_arguments"
+                  <*> v .: "job_config_payload"
 
 instance ToJSON JobError where
     toJSON (JobCanceled c t) = typeObject "job_error"
