@@ -79,7 +79,7 @@ job_argument = mapM_ H.unitEx
   , [H.stmt| create table "job_argument"
       ( "id"             bigserial primary key
       , "job_id"         bigint not null
-      , "name"           varchar not null
+      , "name"           varchar
       , "type"           job_argument_type_t
       , "value_bool"     boolean
       , "value_string"   varchar
@@ -106,6 +106,16 @@ datablock_name_type_t = mapM_ H.unitEx
       , 'job_result'
       , 'alias' ) |] ]
 
+datablock_name_t :: SchemaInit
+datablock_name_t = mapM_ H.unitEx
+  [ [H.stmt| drop type if exists "datablock_name_t" cascade |]
+  , [H.stmt| create type "datablock_name_t" as enum
+      ( "type"          datablock_name_type_t not null
+      , "given_name"    varchar
+      , "compound_name" varchar
+      , "recipe_names"  varchar[]
+      , "job_id"        bigint ) |] ]
+
 datablock_source_type_t :: SchemaInit
 datablock_source_type_t = mapM_ H.unitEx
   [ [H.stmt| drop type if exists "datablock_source_type_t" cascade |]
@@ -114,18 +124,28 @@ datablock_source_type_t = mapM_ H.unitEx
       , 'job'
       , 'data_pipeline' ) |] ]
 
+datablock_source_t :: SchemaInit
+datablock_source_t = mapM_ H.unitEx
+  [ [H.stmt| drop type if exists "datablock_source_t" cascade |]
+  , [H.stmt| create type "datablock_source_t" as enum
+      ( "type"            datablock_source_type_t not null
+      , "source_username" varchar
+      , "source_id"       bigint ) |] ]
+
 datablock :: SchemaInit
 datablock = mapM_ H.unitEx
   [ [H.stmt| drop table if exists "datablock" cascade |]
   , [H.stmt| create table "datablock"
-      ( "id"                  bigserial primary key
-      , "datablock_name_type" datablock_name_type_t not null
-      , "given_name"          varchar
-      , "compound_name"       varchar
-      , "recipe_names"        varchar[]
-      , "job_id"              bigint
-      , "source_type"         datablock_source_type_t
-      , "source_id"           bigint ) |] ]
+      ( "id"               bigserial primary key
+      , "datablock_name"   datablock_name_t not null
+      , "datablock_source" datablock_source_t ) |] ]
+
+datablock_name :: SchemaInit
+datablock_name = mapM_ H.unitEx
+  [ [H.stmt| drop table if exists "datablock_name" cascade |]
+  , [H.stmt| create table "datablock_name"
+      ( "id" bigserial primary key
+      , "type" datablock_name_type_t) |] ]
 
 data_pipeline :: SchemaInit
 data_pipeline = mapM_ H.unitEx
@@ -134,11 +154,15 @@ data_pipeline = mapM_ H.unitEx
       ( "id"   bigserial primary key
       , "name" varchar not null ) |] ]
 
-user :: SchemaInit
-user = mapM_ H.unitEx
-  [ [H.stmt| drop table if exists "user" cascade |]
-  , [H.stmt| create table "user"
-      ( "id"       bigserial primary key
-      , "username" varchar not null
-      , "name"     varchar not null
-      , "email"    varchar not null ) |] ]
+-- Trebuchet internal users are presently disabled. --
+--
+-- TODO: Add supporting code for this alternative to Drupal users and authentication.
+--
+-- user :: SchemaInit
+-- user = mapM_ H.unitEx
+--   [ [H.stmt| drop table if exists "user" cascade |]
+--   , [H.stmt| create table "user"
+--       ( "id"       bigserial primary key
+--       , "username" varchar not null
+--       , "name"     varchar not null
+--       , "email"    varchar not null ) |] ]
