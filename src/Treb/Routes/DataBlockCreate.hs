@@ -50,12 +50,12 @@ dataBlockCreateH msg@(DataBlockCreateMsg name maybeFields maybeRecords) = drupal
         (do
             uri <- fileUpload (dataBlockCreateFileUpload user msg)
             return $ NoWrapEither $ Left $ DataBlockFileUploadMsg uri)
-        (\records -> do
+        (\records ->
             maybe
                 (serverError "DataBlock creation without explicit fields is unimplemented. TODO.")
                 (\fields -> do
                     let protoFields = [ WritableField (fieldName field) (fieldType field) (vectorShape field) | field <- fields ]
-                    writeUserDataBlock user name protoFields records
+                    writeUserDataBlock user name protoFields (V.foldl' (flip (++)) [] $ V.reverse $ V.map V.toList records)
                     Identity dbId <- queryPG H.singleEx $
                         [H.stmt|insert into "datablock"
                                 ( datablock_name
@@ -83,7 +83,7 @@ dataBlockCreateFileUpload origUser (DataBlockCreateMsg name givenFields _) uploa
                     return
                     givenFields
                 -- Calculate protocol buffer fields from Trebuchet fields.
-                protoFields <- mapM (\field -> do
+                protoFields <- mapM (\field ->
                     if vectorShape field /= [] then
                         clientError CEInvalidCSV "CSV may not contain vector fields."
                     else
@@ -113,9 +113,9 @@ parseProtoCSV =
 writeUserDataBlock :: User
                    -> T.Text
                    -> [WritableField]
-                   -> V.Vector (V.Vector ProtoCell)
+                   -> [ProtoCell]
                    -> TrebServerBase ()
-writeUserDataBlock user name fields records = do
+writeUserDataBlock user name fields records =
     -- TODO: Add ad-hoc user datablock directory path to TrebEnv in Treb.Types and add a corresponding argument handler in Treb.Config.
     liftIO $ BL.writeFile ("user_datablocks/" ++ T.unpack name)
         $ runPutBlob $ writeDB $ WritableDB name fields records
