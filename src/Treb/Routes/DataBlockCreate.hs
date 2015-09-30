@@ -8,47 +8,56 @@ Stability:   Provisional
 Portability: POSIX
 -}
 
-{-# LANGUAGE DataKinds, TypeOperators, OverloadedStrings #-}
+{-# LANGUAGE DataKinds, TypeOperators, OverloadedStrings, QuasiQuotes #-}
 
 module Treb.Routes.DataBlockCreate ( DataBlockCreateH, dataBlockCreateH ) where
 
-import Treb.Routes.Helpers
-import Treb.Routes.Types
 import qualified Data.Text as T
 import qualified Data.Vector as V
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.Attoparsec.ByteString as A
+import qualified Hasql as H
+import Control.Monad.IO.Class
+import Control.Monad.Trans.Class
+import Control.Monad.Trans.Either
+import Data.Aeson
+import Data.CSV.Conduit
 import Data.ProtoBlob
 import ProtoDB.Parser
 import ProtoDB.Types
 import ProtoDB.Writer
-import Control.Monad.Trans.Either
 import Treb.Combinators
-import Data.CSV.Conduit
+import Treb.Routes.Helpers
+import Treb.Routes.Types
 import Treb.Types
-import Control.Monad.Trans.Class
-import Control.Monad.IO.Class
 
 ---- Route-Specific Type ----
 type DataBlockCreateH =
     "datablock" :> "create"
         :> ReqBody '[JSON] DataBlockCreateMsg
         :> DrupalAuth
-        :> Post '[JSON] (Either DataBlockFileUploadMsg DataBlockMetadataMsg)
+        :> Post '[JSON] (NoWrapEither DataBlockFileUploadMsg DataBlockMetadataMsg)
 
 dataBlockCreateH :: TrebServer DataBlockCreateH
-dataBlockCreateH msg@(DataBlockCreateMsg name maybeFields maybeRecords) = drupalAuth $ \user ->
+dataBlockCreateH msg@(DataBlockCreateMsg name maybeFields maybeRecords) = drupalAuth $ \user -> do
     maybe
         (do
             uri <- fileUpload (dataBlockCreateFileUpload user msg)
-            return $ Left $ DataBlockFileUploadMsg uri)
+            return $ NoWrapEither $ Left $ DataBlockFileUploadMsg uri)
         (\records -> do
-            -- TODO: Write ProtoBlob here.
-            -- TODO: Write entry in PostgreSQL here.
             maybe
                 (serverError "DataBlock creation without explicit fields is unimplemented. TODO.")
-                (\fields -> return $ Right $ DataBlockMetadataMsg 0 (AdHocName name (userName user)) fields (V.length records))
+                (\fields -> do
+                    let protoFields = [ WritableField (fieldName field) (fieldType field) | field <- fields ]
+                    writeUserDataBlock user protoFields records
+                    dbId <- queryPG H.singleEx $
+                        [H.stmt|insert into "datablock"
+                                ( datablock_name
+                                , datablock_source )
+                                values (('ad_hoc', ?, NULL, NULL, NULL), ('user', ?, NULL))
+                                returning id |] name (userName user)
+                    return $ NoWrapEither $ Right $ DataBlockMetadataMsg dbId (AdHocName name (userName user)) fields (V.length records))
                 maybeFields
             )
         maybeRecords
@@ -73,26 +82,34 @@ dataBlockCreateFileUpload origUser (DataBlockCreateMsg name givenFields _) uploa
                         clientError CEInvalidCSV "CSV may not contain vector fields."
                     else
                         return $ WritableField (fieldName field) (fieldType field) []) fields
-                protoCells <- either (clientError CEInvalidCSV . T.pack) return (parseProtoCSV csv)
-                -- Save the CSV as a ProtoBlob.
-                -- TODO: Add ad-hoc user datablock directory path to TrebEnv in Treb.Types and add a corresponding argument handler in Treb.Config.
-                liftIO $ BL.writeFile ("user_datablocks/" ++ T.unpack name)  $
-                    runPutBlob $
-                        writeDB $
-                            WritableDB name protoFields protoCells
+                writeUserDataBlock user protoFields csv
                 -- TODO: Write entry in PostgreSQL here.
                 return $ DataBlockMetadataMsg 0 (AdHocName name (userName user)) fields (V.length csv))
             (decodeCSV defCSVSettings uploadContent)
-    where
-        parseProtoCSV :: V.Vector (V.Vector B.ByteString) -> Either String [ProtoCell]
-        parseProtoCSV =
-            V.foldM (\xs row ->
-                fmap (++ xs) $ 
-                    V.foldM
-                        (\ys cell ->
-                            either
-                                Left
-                                (maybe
-                                    (Left "Failed to parse at least one CSV cell.")
-                                    (Right . (:ys)))
-                                $ A.parseOnly parseProtoCell cell) [] row) []
+
+parseProtoCSV :: V.Vector (V.Vector B.ByteString) -> Either String [ProtoCell]
+parseProtoCSV =
+    V.foldM (\xs row ->
+        fmap (++ xs) $ 
+            V.foldM
+                (\ys cell ->
+                    either
+                        Left
+                        (maybe
+                            (Left "Failed to parse at least one CSV cell.")
+                            (Right . (:ys)))
+                        $ A.parseOnly parseProtoCell cell) [] row) []
+
+writeUserDataBlock :: User
+                   -> T.Text
+                   -> [WritableField]
+                   -> V.Vector (V.Vector ProtoCell)
+                   -> TrebServerBase ()
+writeUserDataBlock user name fields records = do
+    -- TODO: Add ad-hoc user datablock directory path to TrebEnv in Treb.Types and add a corresponding argument handler in Treb.Config.
+    cells <- either
+                (clientError CEInvalidCSV . T.pack)
+                return
+                (parseProtoCSV records)
+    liftIO $ BL.writeFile ("user_datablocks/" ++ T.unpack name)
+        $ runPutBlob $ writeDB $ WritableDB name fields cells

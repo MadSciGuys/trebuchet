@@ -9,7 +9,7 @@ type SchemaInit = forall s. H.Tx HP.Postgres s ()
 
 -- Configure --
 connSettings :: HP.Settings
-connSettings = HP.ParamSettings "127.0.0.1" 5432 "mswan5" "mswan5" "trebuchet"
+connSettings = HP.ParamSettings "10.37.49.94" 5432 "trebuchet" "trebuchet" "trebuchet"
 
 poolSettings :: Maybe H.PoolSettings
 poolSettings = H.poolSettings 6 30
@@ -35,7 +35,9 @@ schemaInit = do
   sqlExec job_argument
   sqlExec input_datablock
   sqlExec datablock_name_type_t
+  sqlExec datablock_name_t
   sqlExec datablock_source_type_t
+  sqlExec datablock_source_t
   sqlExec datablock
   sqlExec data_pipeline
 
@@ -109,8 +111,8 @@ datablock_name_type_t = mapM_ H.unitEx
 datablock_name_t :: SchemaInit
 datablock_name_t = mapM_ H.unitEx
   [ [H.stmt| drop type if exists "datablock_name_t" cascade |]
-  , [H.stmt| create type "datablock_name_t" as enum
-      ( "type"          datablock_name_type_t not null
+  , [H.stmt| create type "datablock_name_t" as
+      ( "type"          datablock_name_type_t
       , "given_name"    varchar
       , "compound_name" varchar
       , "recipe_names"  varchar[]
@@ -127,8 +129,8 @@ datablock_source_type_t = mapM_ H.unitEx
 datablock_source_t :: SchemaInit
 datablock_source_t = mapM_ H.unitEx
   [ [H.stmt| drop type if exists "datablock_source_t" cascade |]
-  , [H.stmt| create type "datablock_source_t" as enum
-      ( "type"            datablock_source_type_t not null
+  , [H.stmt| create type "datablock_source_t" as
+      ( "type"            datablock_source_type_t
       , "source_username" varchar
       , "source_id"       bigint ) |] ]
 
