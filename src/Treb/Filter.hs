@@ -14,9 +14,7 @@ Simple generic language for defining filters on arbitrary collection types.
 
 module Treb.Filter where
 
-import Control.Applicative ((<$>))
-
-import Data.Aeson.Types (Parser(..))
+import Data.Aeson.Types (Parser)
 
 -- | The class of filterable collections, defined in terms of the atomic filter
 --   operators relevant to the type. Here's a simple example instance for

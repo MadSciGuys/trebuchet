@@ -21,48 +21,22 @@ messages sent between the server and API callers.
 
 module Treb.Types where
 
-import Control.Concurrent.MVar
-
-import Control.Concurrent.STM.TVar
-
-import Control.Monad.Reader
-
-import qualified Data.ByteString as B
-
-import Data.List (foldl')
-
-import Data.Word
-
-import Data.Maybe (isJust, fromMaybe)
-
-import qualified Data.Map as M
-
-import qualified Data.Set as S
-
-import qualified Data.Text as T
-
-import Data.Time
-
-import qualified Data.Vector as V
-
-import Foreign.Ptr
-
 import qualified Codec.MIME.Type as MIME
-
-import ProtoDB.Types
-
-import System.Posix.Types
-
-import qualified Database.MySQL.Simple as MySQL
-import qualified Database.MySQL.Simple.Types as MySQL
-
-import qualified Hasql as H
-import qualified Hasql.Postgres as HP
-
-import Treb.Filter
-import Treb.BadRegex
-
+import qualified Data.Map as M
+import qualified Data.Set as S
+import qualified Data.Text as T
+import qualified Data.Vector as V
+import Control.Concurrent.MVar
+import Control.Concurrent.STM.TVar
+import Control.Monad.Reader
+import Data.Maybe (isJust, fromMaybe)
+import Data.Time
+import Data.Word
+import Foreign.Ptr
 import Network.URI
+import ProtoDB.Types
+import Treb.BadRegex
+import Treb.Filter
 
 -- | Data pipeline.
 data DataPipeline = DataPipeline {

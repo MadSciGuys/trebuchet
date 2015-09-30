@@ -27,23 +27,19 @@ module Treb.Routes.Types
     , setTrebEnvUploadIdGen
     , setTrebEnvCurrentUser ) where
 
-import Data.ByteString (ByteString)
+import qualified Database.MySQL.Simple as MySQL
+import Control.Concurrent.STM
 import Control.Monad.Reader (ReaderT)
 import Control.Monad.Trans.Either (EitherT)
-import Data.Text (Text)
-import Treb.Types
-import Control.Concurrent.STM
-import System.Random
-
+import Data.ByteString (ByteString)
 import Data.Map (Map)
+import Data.Text (Text)
 import Hasql (Pool)
 import Hasql.Postgres (Postgres)
-
-import qualified Database.MySQL.Simple as MySQL
-import qualified Database.MySQL.Simple.Types as MySQL
-
 import Servant
 import Servant.Server
+import System.Random
+import Treb.Types
 
 ---- Core Types ----
 type TrebServer layout = ServerT layout TrebServerBase

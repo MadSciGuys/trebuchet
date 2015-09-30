@@ -36,8 +36,12 @@ import qualified Data.Text as T
 import Data.Text.Encoding as E
 import qualified Data.Text.Lazy as TL
 import Data.Text.Lazy.Encoding as EL
+import Data.Time
+import qualified Data.Vector as V
+import Data.Word
 import Control.Monad
 import qualified ProtoDB.Types as P
+import System.Posix.Types
 import Text.ProtocolBuffers.Basic
 import Treb.Filter
 import Treb.Types
@@ -750,4 +754,4 @@ instance ToJSON DataBlockMetadataMsg where
             , "datablock_record_countd" .= recordCount ]
 
 instance (ToJSON l, ToJSON r) => ToJSON (NoWrapEither l r) where
-    toJSON (NoWrapEither e) = either toJSON toJSON e
+	toJSON (NoWrapEither e) = either toJSON toJSON e

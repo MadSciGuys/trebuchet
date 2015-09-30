@@ -2,15 +2,15 @@
              ScopedTypeVariables, OverloadedStrings, FlexibleContexts #-}
 module Main where
 
+import Data.Bool
+import Data.Maybe
 import Network.Wai
 import Network.Wai.Handler.Warp
 import Network.Wai.Handler.WarpTLS
-import Data.Maybe
-import Data.Bool
 import Treb.Config
-import Treb.Types
 import Treb.Routes
 import Treb.Routes.Types
+import Treb.Types
 
 ---- Important Functions ----
 main :: IO ()

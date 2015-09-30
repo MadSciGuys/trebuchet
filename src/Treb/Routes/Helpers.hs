@@ -15,36 +15,28 @@ module Treb.Routes.Helpers where
 
 import qualified Data.ByteString.Lazy as B
 import qualified Data.Map as M
-import qualified Data.Vector as V
 import qualified Database.MySQL.Simple as MySQL
 import qualified Database.MySQL.Simple.QueryParams as MySQL
 import qualified Database.MySQL.Simple.QueryResults as MySQL
 import qualified Hasql as H
 import qualified Hasql.Postgres as HP
-import Data.Word
-import Data.Aeson
-import Data.Proxy
-import Network.Wai
-import Network.Wai.Handler.Warp
-import Network.Wai.Handler.WarpTLS
-import Data.Maybe
-import Control.Monad.Trans.Either
-import Control.Monad.Trans.Class
-import Control.Concurrent.STM.TVar
-import Control.Monad.Reader
-import Data.Text (Text)
-import Servant
-import Data.List (find)
-import Web.Cookie
-import Data.Text.Encoding
-import Data.Bool
-import Treb.Config
-import Treb.Types
-import Treb.Routes.Types
-import Data.Time.Clock
-import Data.Functor.Identity
 import Control.Concurrent.STM
+import Control.Concurrent.STM.TVar ()
+import Control.Monad.Reader
+import Control.Monad.Trans.Class ()
+import Control.Monad.Trans.Either
+import Data.Aeson
+import Data.List (find)
+import Data.Maybe
+import Data.Proxy
+import Data.Text (Text)
+import Data.Text.Encoding
+import Servant
 import System.Random
+import Treb.JSON ()
+import Treb.Routes.Types
+import Treb.Types
+import Web.Cookie
 
 drupalAuth :: TrebServerBase a -> Maybe Text -> TrebServerBase a
 drupalAuth action cookies = do
@@ -57,7 +49,7 @@ drupalAuth action cookies = do
   case users of
     [] ->
       lift $ left $ err403 { errBody = encode $ ClientError CEInvalidSessionCookie "Drupal session cookie was given but was not found in Drupal." }
-    [(uid, username, realname, email)] -> do
+    [(uid, username, realname, email)] ->
       local (setTrebEnvCurrentUser $ Just $ User uid username realname email) action
     _ ->
       lift $ left err500 { errBody = "SQL query invalid. Returned list of usernames has more than one element." }
