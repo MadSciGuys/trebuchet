@@ -56,7 +56,7 @@ drupalAuth action cookies = do
     sessionCookie
   case users of
     [] ->
-      lift $ left $ err403 { errBody = encode $ ClientError CEInvalidSessionCookie "Drupal session cookie is found but either invalid or expired." }
+      lift $ left $ err403 { errBody = encode $ ClientError CEInvalidSessionCookie "Drupal session cookie was given but was not found in Drupal." }
     [(uid, username, realname, email)] -> do
       ret <- action $ User uid username realname email
       return ret
