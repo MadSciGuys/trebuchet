@@ -62,6 +62,8 @@ import qualified Hasql.Postgres as HP
 import Treb.Filter
 import Treb.BadRegex
 
+import Network.URI
+
 -- | Data pipeline.
 data DataPipeline = DataPipeline {
     dplID   :: Word64
@@ -529,19 +531,6 @@ data Job = Job {
   , jobResult     :: Maybe [DataBlockName]
   } deriving (Eq, Show)
 
-data TrebEnv = TrebEnv
-  { trebEnvJobTemplates :: [JobTemplate]
-    -- ^ This is the current set of acknowledged job templates.
-  , trebEnvJobTemplatesTVar :: TVar (Maybe [JobTemplate])
-    -- ^ This TVar is written to upon inotify events in the job templates
-    -- directory.
-  , trebEnvDrupalMySQLConn :: Maybe MySQL.Connection
-    -- ^ This is intended for authentication.
-  , trebEnvPgPool :: H.Pool HP.Postgres
-  , trebEnvUsername :: Maybe T.Text -- ^ Temporary. To be replaced by trebEnvUser
-  , trebEnvConfig :: TrebConfig
-  }
-
 data TrebConfig = TrebConfig
   { confDebugMode      :: Bool
   , confPort           :: Int
@@ -569,7 +558,14 @@ type JobConfigMap = MVar (M.Map T.Text (MVar JobConfig))
 type JobMap = MVar (M.Map Word64 (MVar Job))
 
 data ClientError = ClientError ClientErrorCode T.Text
-data ClientErrorCode = CEMissingSessionCookie | CEInvalidSessionCookie | CEUserNotFound
+data ClientErrorCode = CEMissingSessionCookie | CEInvalidSessionCookie | CEUserNotFound | CEInvalidCSV
+
+data DataBlockCreateMsg = DataBlockCreateMsg T.Text (Maybe [DataBlockField]) (Maybe (V.Vector (V.Vector ProtoCell)))
+
+data DataBlockFileUploadMsg = DataBlockFileUploadMsg URI
+
+-- | Consists of id, name, fields, record_count, and source (TODO).
+data DataBlockMetadataMsg = DataBlockMetadataMsg Word64 DataBlockName [DataBlockField] Int
 
 lookupMap :: Ord k => k -> M.Map k a -> M.Map k a
 lookupMap k m = case M.lookup k m of Nothing  -> M.empty

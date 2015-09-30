@@ -10,7 +10,7 @@ Portability: POSIX
 
 {-# LANGUAGE DataKinds, TypeOperators, OverloadedStrings #-}
 
-module Treb.Routes.JobCreate ( JobCreateH, jobCreate ) where
+module Treb.Routes.JobCreate ( JobCreateH, jobCreateH ) where
 
 import Treb.Routes.Types
 
@@ -21,5 +21,5 @@ type JobCreateH =
         :> DrupalAuth
         :> Post '[JSON] Job
 
-jobCreate :: TrebServer JobCreateH
-jobCreate = undefined
+jobCreateH :: TrebServer JobCreateH
+jobCreateH = undefined

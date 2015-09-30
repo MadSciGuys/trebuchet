@@ -39,6 +39,8 @@ import Data.Maybe
 
 import qualified Data.Map as M
 
+import qualified Data.HashMap.Strict as HM
+
 import qualified Data.Set as S
 
 import qualified Data.Text as T
@@ -61,14 +63,26 @@ import qualified Codec.MIME.Type as MIME
 import qualified Codec.MIME.Parse as MIME
 
 import System.Posix.Types
+import Data.Monoid
 
 import Treb.Types
 import Treb.Filter
 
 default (T.Text)
 
-typeObject :: T.Text -> [Pair] -> Value
+setType :: T.Text -> Value -> Value
+setType ty (Object v) = Object (HM.insert "type" (String ty) v)
+setType ty _ = error "setType applied to non-object Aeson Value."
+
 typeObject = (object .) . (:) . ("type" .=)
+
+assertType :: Object -> [Char] -> Parser ()
+assertType v expectedTy = do
+    actualTy <- v .: "type" 
+    if actualTy == expectedTy then
+        return ()
+    else
+        fail $ "Expected type '" <> expectedTy <> "' does not match actual type '" <> actualTy <> "'."
 
 instance ToJSON DataBlockName where
     toJSON (AdHocName n user) = typeObject "datablock_name"
@@ -735,3 +749,30 @@ instance ToJSON ClientError where
 instance ToJSON ClientErrorCode where
   toJSON CEMissingSessionCookie = String "missing_session_cookie"
   toJSON CEInvalidSessionCookie = String "invalid_session_cookie"
+  toJSON CEUserNotFound         = String "user_not_found"
+  toJSON CEInvalidCSV           = String "invalid_csv"
+
+instance ToJSON DataBlockCreateMsg where
+    toJSON (DataBlockCreateMsg name fields records) = setType "datablock_name" $
+        object
+            [ "datablock_create_name"    .= name
+            , "datablock_create_fields"  .= fields
+            , "datablock_create_records" .= records ]
+
+instance FromJSON DataBlockCreateMsg where
+    parseJSON (Object v) = do
+        assertType v "datablock_create"
+        DataBlockCreateMsg <$> v .: "datablock_create_name"
+                           <*> v .:? "datablock_create_fields"
+                           <*> v .:? "datablock_create_records"
+
+instance ToJSON DataBlockFileUploadMsg where
+    toJSON (DataBlockFileUploadMsg uri) = toJSON $ show uri
+
+instance ToJSON DataBlockMetadataMsg where
+    toJSON (DataBlockMetadataMsg id name fields recordCount) = setType "datablock_metadata" $
+        object
+            [ "datablock_id"            .= id
+            , "datablock_name"          .= name
+            , "datablock_fields"        .= fields
+            , "datablock_record_countd" .= recordCount ]

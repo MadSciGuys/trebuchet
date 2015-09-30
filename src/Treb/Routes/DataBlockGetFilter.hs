@@ -10,7 +10,7 @@ Portability: POSIX
 
 {-# LANGUAGE DataKinds, TypeOperators, OverloadedStrings #-}
 
-module Treb.Routes.DataBlockGetFilter ( DataBlockGetFilterH, dataBlockGetFilter ) where
+module Treb.Routes.DataBlockGetFilter ( DataBlockGetFilterH, dataBlockGetFilterH ) where
 
 import Treb.Routes.Types
 
@@ -20,5 +20,5 @@ type DataBlockGetFilterH =
         :> ReqBody '[JSON] DataBlockFilter
         :> Post '[JSON] DataBlock
 
-dataBlockGetFilter :: TrebServer DataBlockGetFilterH
-dataBlockGetFilter = undefined
+dataBlockGetFilterH :: TrebServer DataBlockGetFilterH
+dataBlockGetFilterH = undefined

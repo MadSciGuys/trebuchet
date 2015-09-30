@@ -10,7 +10,7 @@ Portability: POSIX
 
 {-# LANGUAGE DataKinds, TypeOperators, OverloadedStrings #-}
 
-module Treb.Routes.JobFilter ( JobFilterH, jobFilter ) where
+module Treb.Routes.JobFilter ( JobFilterH, jobFilterH ) where
 
 import Treb.Routes.Types
 
@@ -20,5 +20,5 @@ type JobFilterH =
         :> ReqBody '[JSON] JobSetFilter
         :> Post '[JSON] Job
 
-jobFilter :: TrebServer JobFilterH
-jobFilter = undefined
+jobFilterH :: TrebServer JobFilterH
+jobFilterH = undefined

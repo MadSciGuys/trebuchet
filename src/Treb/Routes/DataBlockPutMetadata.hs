@@ -10,7 +10,7 @@ Portability: POSIX
 
 {-# LANGUAGE DataKinds, TypeOperators, OverloadedStrings #-}
 
-module Treb.Routes.DataBlockPutMetadata ( DataBlockPutMetadataH, dataBlockPutMetadata ) where
+module Treb.Routes.DataBlockPutMetadata ( DataBlockPutMetadataH, dataBlockPutMetadataH ) where
 
 import Treb.Routes.Types
 
@@ -20,5 +20,5 @@ type DataBlockPutMetadataH =
         :> ReqBody '[JSON] DataBlockFilter
         :> Put '[JSON] DataBlock
 
-dataBlockPutMetadata :: TrebServer DataBlockPutMetadataH
-dataBlockPutMetadata = undefined
+dataBlockPutMetadataH :: TrebServer DataBlockPutMetadataH
+dataBlockPutMetadataH = undefined

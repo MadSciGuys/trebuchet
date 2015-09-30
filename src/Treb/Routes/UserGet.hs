@@ -10,7 +10,7 @@ Portability: POSIX
 
 {-# LANGUAGE DataKinds, TypeOperators, OverloadedStrings #-}
 
-module Treb.Routes.UserGet ( UserGetH, userGet ) where
+module Treb.Routes.UserGet ( UserGetH, userGetH ) where
 
 import Treb.Routes.Types
 
@@ -19,5 +19,5 @@ type UserGetH =
     "user" :> Capture "username" Text
         :> Get '[JSON] User
 
-userGet :: TrebServer UserGetH
-userGet = undefined
+userGetH :: TrebServer UserGetH
+userGetH = undefined

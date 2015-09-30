@@ -1,7 +1,9 @@
+{-# LANGUAGE RankNTypes, ImpredicativeTypes, LiberalTypeSynonyms #-}
 module Treb.Config (withTrebEnv) where
 
 import qualified Hasql as H
 import qualified Hasql.Postgres as HP
+import qualified Data.Map as M
 import qualified Data.ByteString.Lazy as B
 import qualified Data.ByteString.Char8 as BC
 import qualified Database.MySQL.Simple as MySQL
@@ -24,6 +26,7 @@ import Text.Read (readEither)
 import Treb.Combinators
 import Treb.JSON ()
 import Treb.Types
+import Treb.Routes.Types
 
 -- Exported Functions --
 
@@ -58,24 +61,22 @@ getEnv = do
     $ "Job template directory '" ++ (cwd </> jobTemplateDir) ++ "' not found."
 
   -- Create TVar for updating the job templates available to HTTP request handlers
-  jobTemplatesTVar <- liftIO $ newTVarIO Nothing
+  jobTemplates <- liftIO $ newTVarIO []
 
   -- Begin watching job_templates directory and automatically update the internal job templates accordingly
   liftIO $ do
-    putStrLn "Initializing event watchers for job templates directory."
-  
-    inotify <- initINotify
-    addWatch inotify [Create, Delete, Modify, MoveIn, MoveOut] jobTemplateDir $ \ _ ->
-      getJobTemplates jobTemplateDir
-        >>= atomically . swapTVar jobTemplatesTVar . Just
-        >> putStrLn "Job Templates Updated."
+    let updateJobTemplates = getJobTemplates jobTemplateDir >>= atomically . writeTVar jobTemplates
 
+    putStrLn "Initializing event watchers for job templates directory."
+    inotify <- initINotify
+    addWatch inotify [Create, Delete, Modify, MoveIn, MoveOut] jobTemplateDir $
+      const $ updateJobTemplates
+           >> putStrLn "Job Templates Updated."
     putStrLn "> Done."
 
-  -- Get the initial job templates
-  jobTemplates <- liftIO $ putStrLn "Parsing job templates."
-                        *> getJobTemplates jobTemplateDir
-                        <* putStrLn "> Done."
+    putStrLn "Settings initial Job Templates."
+    updateJobTemplates
+    putStrLn "> Done."
 
   -- Connect to the Drupal/OpenAtrium MySQL database for authentication and authorization
   drupalMySQLConn <- unlessDebugMode conf $ do
@@ -103,14 +104,16 @@ getEnv = do
     liftIO $ putStrLn "> Done."
     return ret
 
+  activeUploads <- liftIO $ newTVarIO M.empty
+
   -- Construct the Trebuchet environment
   return $ TrebEnv
     { trebEnvJobTemplates     = jobTemplates
-    , trebEnvJobTemplatesTVar = jobTemplatesTVar
     , trebEnvDrupalMySQLConn  = drupalMySQLConn
     , trebEnvUsername         = Nothing
     , trebEnvConfig           = conf
-    , trebEnvPgPool           = pgPool }
+    , trebEnvPgPool           = pgPool
+    , trebEnvActiveUploads    = activeUploads }
 
 processArgs :: TrebConfig -> [String] -> EitherT String IO TrebConfig
 processArgs conf []                                                      = right conf

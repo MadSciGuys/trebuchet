@@ -10,7 +10,7 @@ Portability: POSIX
 
 {-# LANGUAGE DataKinds, TypeOperators, OverloadedStrings #-}
 
-module Treb.Routes.JobTemplateFilter ( JobTemplateFilterH, jobTemplateFilter ) where
+module Treb.Routes.JobTemplateFilter ( JobTemplateFilterH, jobTemplateFilterH ) where
 
 import Servant
 import Treb.Routes.Types
@@ -21,5 +21,5 @@ type JobTemplateFilterH =
     "job_template" :> "all"
         :> Get '[JSON] [JobTemplate]
 
-jobTemplateFilter :: TrebServer JobTemplateFilterH
-jobTemplateFilter = undefined
+jobTemplateFilterH :: TrebServer JobTemplateFilterH
+jobTemplateFilterH = undefined

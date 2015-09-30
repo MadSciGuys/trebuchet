@@ -12,21 +12,25 @@ Portability: POSIX
              ScopedTypeVariables, OverloadedStrings, FlexibleContexts,
              QuasiQuotes #-}
 
-module Treb.Routes where
+module Treb.Routes
+    ( TrebApi
+    , trebApiProxy
+    , DataBlockCreateH
+    , dataBlockCreateH ) where
 
 import Servant
 
-import Treb.Routes.DataBlockCreate      ( DataBlockCreateH )
-import Treb.Routes.DataBlockFilter      ( DataBlockFilterH )
-import Treb.Routes.DataBlockGet         ( DataBlockGetH )
-import Treb.Routes.DataBlockGetMetadata ( DataBlockGetMetadataH )
-import Treb.Routes.DataBlockGetFilter   ( DataBlockGetFilterH )
-import Treb.Routes.DataBlockPutMetadata ( DataBlockPutMetadataH )
-import Treb.Routes.JobCreate            ( JobCreateH )
-import Treb.Routes.JobFilter            ( JobFilterH )
-import Treb.Routes.UserFilter           ( UserFilterH )
-import Treb.Routes.UserGet              ( UserGetH )
-import Treb.Routes.JobTemplateFilter    ( JobTemplateFilterH )
+import Treb.Routes.DataBlockCreate      ( DataBlockCreateH, dataBlockCreateH )
+--import Treb.Routes.DataBlockFilter      ( DataBlockFilterH )
+--import Treb.Routes.DataBlockGet         ( DataBlockGetH )
+--import Treb.Routes.DataBlockGetMetadata ( DataBlockGetMetadataH )
+--import Treb.Routes.DataBlockGetFilter   ( DataBlockGetFilterH )
+--import Treb.Routes.DataBlockPutMetadata ( DataBlockPutMetadataH )
+--import Treb.Routes.JobCreate            ( JobCreateH )
+--import Treb.Routes.JobFilter            ( JobFilterH )
+--import Treb.Routes.UserFilter           ( UserFilterH )
+--import Treb.Routes.UserGet              ( UserGetH )
+--import Treb.Routes.JobTemplateFilter    ( JobTemplateFilterH )
 
 ---- Trebuchet API ----
 type TrebApi =
@@ -37,19 +41,22 @@ type TrebApi =
     -- PostgreSQL to determine the DataBlockName so that it may be looked up in the
     -- server DataBlockName to DataBlock mapping.
          DataBlockCreateH
-    :<|> DataBlockFilterH
-    :<|> DataBlockGetH
-    :<|> DataBlockGetMetadataH
-    :<|> DataBlockGetFilterH
-    :<|> DataBlockPutMetadataH
+--    :<|> DataBlockFilterH
+--    :<|> DataBlockGetH
+--    :<|> DataBlockGetMetadataH
+--    :<|> DataBlockGetFilterH
+--    :<|> DataBlockPutMetadataH
+--
+--    ---- Job ----
+--    :<|> JobCreateH
+--    :<|> JobFilterH
+--
+--    ---- User ----
+--    :<|> UserFilterH
+--    :<|> UserGetH
+--
+--    ---- Job Template ----
+--    :<|> JobTemplateFilterH
 
-    ---- Job ----
-    :<|> JobCreateH
-    :<|> JobFilterH
-
-    ---- User ----
-    :<|> UserFilterH
-    :<|> UserGetH
-
-    ---- Job Template ----
-    :<|> JobTemplateFilterH
+trebApiProxy :: Proxy TrebApi
+trebApiProxy = Proxy

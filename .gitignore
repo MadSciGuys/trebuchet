@@ -27,3 +27,6 @@ cabal.config
 
 # Arcanist
 .arcconfig
+
+# Specific
+run.sh

@@ -10,7 +10,7 @@ Portability: POSIX
 
 {-# LANGUAGE DataKinds, TypeOperators, OverloadedStrings #-}
 
-module Treb.Routes.UserFilter ( UserFilterH, userFilter ) where
+module Treb.Routes.UserFilter ( UserFilterH, userFilterH ) where
 
 import Treb.Routes.Types
 
@@ -20,5 +20,5 @@ type UserFilterH =
     "user" :> "all"
         :> Get '[JSON] [User]
 
-userFilter :: TrebServer UserFilterH
-userFilter = undefined
+userFilterH :: TrebServer UserFilterH
+userFilterH = undefined

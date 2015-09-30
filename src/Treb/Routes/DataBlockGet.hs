@@ -10,7 +10,7 @@ Portability: POSIX
 
 {-# LANGUAGE DataKinds, TypeOperators, OverloadedStrings #-}
 
-module Treb.Routes.DataBlockGet ( DataBlockGetH, dataBlockGet ) where
+module Treb.Routes.DataBlockGet ( DataBlockGetH, dataBlockGetH ) where
 
 import Treb.Routes.Types
 
@@ -19,5 +19,5 @@ type DataBlockGetH =
     "datablock" :> Capture "datablock_id" DataBlockId
         :> Get '[JSON] DataBlock
 
-dataBlockGet :: TrebServer DataBlockGetH
-dataBlockGet = undefined
+dataBlockGetH :: TrebServer DataBlockGetH
+dataBlockGetH = undefined
