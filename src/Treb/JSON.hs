@@ -753,7 +753,7 @@ instance ToJSON ClientErrorCode where
   toJSON CEInvalidCSV           = String "invalid_csv"
 
 instance ToJSON DataBlockCreateMsg where
-    toJSON (DataBlockCreateMsg name fields records) = setType "datablock_name" $
+    toJSON (DataBlockCreateMsg name fields records) = setType "datablock_create" $
         object
             [ "datablock_create_name"    .= name
             , "datablock_create_fields"  .= fields
