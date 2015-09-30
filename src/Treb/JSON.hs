@@ -739,7 +739,9 @@ instance FromJSON DataBlockCreateMsg where
                            <*> v .:? "datablock_create_records"
 
 instance ToJSON DataBlockFileUploadMsg where
-    toJSON (DataBlockFileUploadMsg uri) = toJSON $ show uri
+    toJSON (DataBlockFileUploadMsg url) = setType "datablock_file_upload" $
+        object
+            [ "upload_url" .= toJSON (show url) ]
 
 instance ToJSON DataBlockMetadataMsg where
     toJSON (DataBlockMetadataMsg id name fields recordCount) = setType "datablock_metadata" $
