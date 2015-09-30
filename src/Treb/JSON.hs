@@ -776,3 +776,6 @@ instance ToJSON DataBlockMetadataMsg where
             , "datablock_name"          .= name
             , "datablock_fields"        .= fields
             , "datablock_record_countd" .= recordCount ]
+
+instance (ToJSON l, ToJSON r) => ToJSON (NoWrapEither l r) where
+	toJSON (NoWrapEither e) = either toJSON toJSON e

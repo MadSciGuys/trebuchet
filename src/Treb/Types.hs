@@ -567,6 +567,8 @@ data DataBlockFileUploadMsg = DataBlockFileUploadMsg URI
 -- | Consists of id, name, fields, record_count, and source (TODO).
 data DataBlockMetadataMsg = DataBlockMetadataMsg Word64 DataBlockName [DataBlockField] Int
 
+newtype NoWrapEither l r = NoWrapEither (Either l r)
+
 lookupMap :: Ord k => k -> M.Map k a -> M.Map k a
 lookupMap k m = case M.lookup k m of Nothing  -> M.empty
                                      (Just a) -> M.singleton k a

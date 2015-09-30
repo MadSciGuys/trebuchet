@@ -29,26 +29,27 @@ import Data.CSV.Conduit
 import Treb.Types
 import Control.Monad.Trans.Class
 import Control.Monad.IO.Class
+import Data.Aeson
 
 ---- Route-Specific Type ----
 type DataBlockCreateH =
     "datablock" :> "create"
         :> ReqBody '[JSON] DataBlockCreateMsg
         :> DrupalAuth
-        :> Post '[JSON] (Either DataBlockFileUploadMsg DataBlockMetadataMsg)
+        :> Post '[JSON] (NoWrapEither DataBlockFileUploadMsg DataBlockMetadataMsg)
 
 dataBlockCreateH :: TrebServer DataBlockCreateH
-dataBlockCreateH msg@(DataBlockCreateMsg name maybeFields maybeRecords) = drupalAuth $ \user ->
+dataBlockCreateH msg@(DataBlockCreateMsg name maybeFields maybeRecords) = drupalAuth $ \user -> do
     maybe
         (do
             uri <- fileUpload (dataBlockCreateFileUpload user msg)
-            return $ Left $ DataBlockFileUploadMsg uri)
+            return $ NoWrapEither $ Left $ DataBlockFileUploadMsg uri)
         (\records -> do
             -- TODO: Write ProtoBlob here.
             -- TODO: Write entry in PostgreSQL here.
             maybe
                 (serverError "DataBlock creation without explicit fields is unimplemented. TODO.")
-                (\fields -> return $ Right $ DataBlockMetadataMsg 0 (AdHocName name (userName user)) fields (V.length records))
+                (\fields -> return $ NoWrapEither $ Right $ DataBlockMetadataMsg 0 (AdHocName name (userName user)) fields (V.length records))
                 maybeFields
             )
         maybeRecords
