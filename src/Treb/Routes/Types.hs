@@ -17,7 +17,15 @@ module Treb.Routes.Types
     , TrebServerBase
     , TrebEnv(..)
     , DrupalAuth
-    , FileUploadH ) where
+    , FileUploadH
+    , setTrebEnvJobTemplates
+    , setTrebEnvDrupalMySQLConn
+    , setTrebEnvPgPool
+    , setTrebEnvUsername
+    , setTrebEnvConfig
+    , setTrebEnvActiveUploads
+    , setTrebEnvUploadIdGen
+    , setTrebEnvCurrentUser ) where
 
 import Data.ByteString (ByteString)
 import Control.Monad.Reader (ReaderT)
@@ -42,8 +50,7 @@ type TrebServer layout = ServerT layout TrebServerBase
 type TrebServerBase = ReaderT TrebEnv (EitherT ServantErr IO)
 
 data TrebEnv = TrebEnv
-  { 
-    trebEnvJobTemplates :: TVar [JobTemplate]
+  { trebEnvJobTemplates :: TVar [JobTemplate]
     -- ^ This TVar is written to upon inotify events in the job templates
     -- directory.
   , trebEnvDrupalMySQLConn :: Maybe MySQL.Connection
@@ -52,7 +59,9 @@ data TrebEnv = TrebEnv
   , trebEnvUsername :: Maybe Text -- ^ Temporary. To be replaced by trebEnvUser
   , trebEnvConfig :: TrebConfig
   , trebEnvActiveUploads :: TVar (Map Int (TrebServer (forall a. FileUploadH a)))
-  , trebEnvUploadIdGen :: TVar StdGen }
+  , trebEnvUploadIdGen :: TVar StdGen
+  , trebEnvCurrentUser :: Maybe User
+  }
 
 ---- Helper Types ----
 type DrupalAuth = Header "Cookie" Text
@@ -63,3 +72,13 @@ type FileUploadH ret =
         :> ReqBody '[OctetStream] ByteString
         :> DrupalAuth
         :> Post '[JSON] ret
+
+-- Record Mutators --
+setTrebEnvJobTemplates    x env = env { trebEnvJobTemplates    = x }
+setTrebEnvDrupalMySQLConn x env = env { trebEnvDrupalMySQLConn = x }
+setTrebEnvPgPool          x env = env { trebEnvPgPool          = x }
+setTrebEnvUsername        x env = env { trebEnvUsername        = x }
+setTrebEnvConfig          x env = env { trebEnvConfig          = x }
+setTrebEnvActiveUploads   x env = env { trebEnvActiveUploads   = x }
+setTrebEnvUploadIdGen     x env = env { trebEnvUploadIdGen     = x }
+setTrebEnvCurrentUser     x env = env { trebEnvCurrentUser     = x }

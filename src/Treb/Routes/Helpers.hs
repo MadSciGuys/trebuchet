@@ -46,7 +46,7 @@ import Data.Functor.Identity
 import Control.Concurrent.STM
 import System.Random
 
-drupalAuth :: (User -> TrebServerBase a) -> Maybe Text -> TrebServerBase a
+drupalAuth :: TrebServerBase a -> Maybe Text -> TrebServerBase a
 drupalAuth action cookies = do
   let sessionCookie = fmap (fmap snd . find ((== "SESS249b7ba79335e5fe3b5934ff07174a20") . fst) . parseCookies . encodeUtf8) cookies
   conn <- fromJust <$> trebEnvDrupalMySQLConn <$> ask
@@ -58,13 +58,12 @@ drupalAuth action cookies = do
     [] ->
       lift $ left $ err403 { errBody = encode $ ClientError CEInvalidSessionCookie "Drupal session cookie was given but was not found in Drupal." }
     [(uid, username, realname, email)] -> do
-      ret <- action $ User uid username realname email
-      return ret
+      local (setTrebEnvCurrentUser $ Just $ User uid username realname email) action
     _ ->
       lift $ left err500 { errBody = "SQL query invalid. Returned list of usernames has more than one element." }
 
-getUser :: Text -> TrebServerBase User
-getUser username = do
+getUserByUsername :: Text -> TrebServerBase User
+getUserByUsername username = do
     rs <- queryDrupal (MySQL.Only username)
         "SELECT atrium_users.uid, atrium_users.name, atrium_realname.realname, atrium_users.mail FROM atrium_users INNER JOIN atrium_realname ON atrium_realname.uid = atrium_users.uid WHERE atrium_users.name = ?"
     case rs of
@@ -137,3 +136,11 @@ getRandomUploadId = do
         let (i, g') = next g
         writeTVar idGen g'
         return i
+
+getCurrentUser :: TrebServerBase User
+getCurrentUser = do
+    maybeUser <- reader trebEnvCurrentUser
+    maybe
+        (serverError "Current user requested without authentication context.")
+        return
+        maybeUser

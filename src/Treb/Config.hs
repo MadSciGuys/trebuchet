@@ -20,6 +20,7 @@ import Data.Maybe
 import System.FilePath
 import System.INotify
 import System.Directory
+import System.Random
 import System.Environment (getArgs)
 import System.IO.Error
 import Text.Read (readEither)
@@ -105,15 +106,18 @@ getEnv = do
     return ret
 
   activeUploads <- liftIO $ newTVarIO M.empty
+  uploadIdGen <- liftIO $ newTVarIO =<< getStdGen
 
   -- Construct the Trebuchet environment
   return $ TrebEnv
-    { trebEnvJobTemplates     = jobTemplates
-    , trebEnvDrupalMySQLConn  = drupalMySQLConn
-    , trebEnvUsername         = Nothing
-    , trebEnvConfig           = conf
-    , trebEnvPgPool           = pgPool
-    , trebEnvActiveUploads    = activeUploads }
+    { trebEnvJobTemplates    = jobTemplates
+    , trebEnvDrupalMySQLConn = drupalMySQLConn
+    , trebEnvUsername        = Nothing
+    , trebEnvConfig          = conf
+    , trebEnvPgPool          = pgPool
+    , trebEnvActiveUploads   = activeUploads
+    , trebEnvCurrentUser     = Nothing
+    , trebEnvUploadIdGen     = uploadIdGen }
 
 processArgs :: TrebConfig -> [String] -> EitherT String IO TrebConfig
 processArgs conf []                                                      = right conf

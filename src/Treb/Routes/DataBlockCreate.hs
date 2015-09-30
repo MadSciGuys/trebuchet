@@ -21,6 +21,7 @@ import qualified Hasql as H
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Either
+import Control.Monad.Identity
 import Data.Aeson
 import Data.CSV.Conduit
 import Data.ProtoBlob
@@ -40,7 +41,8 @@ type DataBlockCreateH =
         :> Post '[JSON] (NoWrapEither DataBlockFileUploadMsg DataBlockMetadataMsg)
 
 dataBlockCreateH :: TrebServer DataBlockCreateH
-dataBlockCreateH msg@(DataBlockCreateMsg name maybeFields maybeRecords) = drupalAuth $ \user -> do
+dataBlockCreateH msg@(DataBlockCreateMsg name maybeFields maybeRecords) = drupalAuth $ do
+    user <- getCurrentUser
     maybe
         (do
             uri <- fileUpload (dataBlockCreateFileUpload user msg)
@@ -49,9 +51,9 @@ dataBlockCreateH msg@(DataBlockCreateMsg name maybeFields maybeRecords) = drupal
             maybe
                 (serverError "DataBlock creation without explicit fields is unimplemented. TODO.")
                 (\fields -> do
-                    let protoFields = [ WritableField (fieldName field) (fieldType field) | field <- fields ]
-                    writeUserDataBlock user protoFields records
-                    dbId <- queryPG H.singleEx $
+                    let protoFields = [ WritableField (fieldName field) (fieldType field) (vectorShape field) | field <- fields ]
+                    writeUserDataBlock user name protoFields records
+                    Identity dbId <- queryPG H.singleEx $
                         [H.stmt|insert into "datablock"
                                 ( datablock_name
                                 , datablock_source )
@@ -63,7 +65,8 @@ dataBlockCreateH msg@(DataBlockCreateMsg name maybeFields maybeRecords) = drupal
         maybeRecords
 
 dataBlockCreateFileUpload :: User -> DataBlockCreateMsg -> TrebServer (FileUploadH DataBlockMetadataMsg)
-dataBlockCreateFileUpload origUser (DataBlockCreateMsg name givenFields _) uploadId uploadContent = drupalAuth $ \user -> do
+dataBlockCreateFileUpload origUser (DataBlockCreateMsg name givenFields _) uploadId uploadContent = drupalAuth $ do
+    user <- getCurrentUser
     if userName origUser /= userName user then
         serverError "Uploader is not the initiator of this DataBlock creation transaction."
     else
@@ -82,7 +85,11 @@ dataBlockCreateFileUpload origUser (DataBlockCreateMsg name givenFields _) uploa
                         clientError CEInvalidCSV "CSV may not contain vector fields."
                     else
                         return $ WritableField (fieldName field) (fieldType field) []) fields
-                writeUserDataBlock user protoFields csv
+                protoCells <- either
+                            (clientError CEInvalidCSV . T.pack)
+                            return
+                            (parseProtoCSV csv)
+                writeUserDataBlock user name protoFields protoCells
                 -- TODO: Write entry in PostgreSQL here.
                 return $ DataBlockMetadataMsg 0 (AdHocName name (userName user)) fields (V.length csv))
             (decodeCSV defCSVSettings uploadContent)
@@ -107,9 +114,5 @@ writeUserDataBlock :: User
                    -> TrebServerBase ()
 writeUserDataBlock user name fields records = do
     -- TODO: Add ad-hoc user datablock directory path to TrebEnv in Treb.Types and add a corresponding argument handler in Treb.Config.
-    cells <- either
-                (clientError CEInvalidCSV . T.pack)
-                return
-                (parseProtoCSV records)
     liftIO $ BL.writeFile ("user_datablocks/" ++ T.unpack name)
-        $ runPutBlob $ writeDB $ WritableDB name fields cells
+        $ runPutBlob $ writeDB $ WritableDB name fields records
