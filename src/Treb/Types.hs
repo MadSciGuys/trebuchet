@@ -523,7 +523,8 @@ data TrebConfig = TrebConfig
   , confPGPassword     :: Maybe String
   , confPGDatabase     :: Maybe String
   , confPGPoolMax      :: Maybe String
-  , confPGConnLifetime :: Maybe String }
+  , confPGConnLifetime :: Maybe String
+  , confBaseURI        :: Maybe String }
 
 type JobTemplateMap = MVar (M.Map T.Text (MVar JobTemplate))
 

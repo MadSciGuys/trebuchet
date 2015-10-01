@@ -17,6 +17,7 @@ import Data.Aeson
 import Data.Bool
 import Data.Bits (xor)
 import Data.Maybe
+import Network.URI
 import System.FilePath
 import System.INotify
 import System.Directory
@@ -108,6 +109,8 @@ getEnv = do
   activeUploads <- liftIO $ newTVarIO M.empty
   uploadIdGen <- liftIO $ newTVarIO =<< getStdGen
 
+  let baseURI = fromMaybe nullURI $ confBaseURI conf >>= parseURI
+
   -- Construct the Trebuchet environment
   return $ TrebEnv
     { trebEnvJobTemplates    = jobTemplates
@@ -117,7 +120,8 @@ getEnv = do
     , trebEnvPgPool          = pgPool
     , trebEnvActiveUploads   = activeUploads
     , trebEnvCurrentUser     = Nothing
-    , trebEnvUploadIdGen     = uploadIdGen }
+    , trebEnvUploadIdGen     = uploadIdGen
+    , trebEnvBaseURI         = baseURI }
 
 processArgs :: TrebConfig -> [String] -> EitherT String IO TrebConfig
 processArgs conf []                                                      = right conf

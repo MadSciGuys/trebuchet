@@ -10,7 +10,7 @@ Portability: POSIX
 
 {-# LANGUAGE DataKinds, PolyKinds, RankNTypes, TypeFamilies, TypeOperators,
              ScopedTypeVariables, OverloadedStrings, FlexibleContexts,
-             QuasiQuotes, LiberalTypeSynonyms, ImpredicativeTypes #-}
+             LiberalTypeSynonyms, ImpredicativeTypes #-}
 module Treb.Routes.Helpers where
 
 import qualified Data.ByteString.Lazy as B
@@ -31,6 +31,7 @@ import Data.Maybe
 import Data.Proxy
 import Data.Text (Text)
 import Data.Text.Encoding
+import Network.URI
 import Servant
 import System.Random
 import Treb.JSON ()
@@ -90,6 +91,56 @@ queryPG ex stmt = do
         return
         res
 
+fileUpload :: TrebServer FileUploadH -> TrebServerBase URI
+fileUpload handler = do
+    uploadId <- freshUploadId
+    -- Add the fresh Upload ID to the active upload map.
+    reader trebEnvActiveUploads >>= (liftIO . atomically . flip modifyTVar (M.insert uploadId handler)) 
+    baseURI <- getBaseURI
+    -- TODO: Use Servant's safeLink function to generate a type-consistent link.
+    let p = Proxy :: Proxy FileUploadH
+    --(URI "" Nothing ("file_upload/" ++ show uploadId) "" "") 
+    return $ safeLink p p uploadId
+               `relativeTo` baseURI
+
+freshUploadId :: TrebServerBase Int
+freshUploadId = do
+    idGen <- reader trebEnvUploadIdGen
+    activeUploadsTVar <- reader trebEnvActiveUploads
+    liftIO $ atomically $ readTVar activeUploadsTVar >>= findNewUploadId idGen
+    where
+      findNewUploadId idGen uploads = do
+                  uploadId <- nextStdGenSTM idGen
+                  if M.member uploadId uploads then
+                      findNewUploadId idGen uploads
+                  else
+                      return uploadId
+
+nextStdGenSTM :: TVar StdGen -> STM Int
+nextStdGenSTM idGen = do
+  g <- readTVar idGen
+  let (i, g') = next g
+  writeTVar idGen g'
+  return i
+
+-- Environment Accessors --
+getActiveUploads :: TrebServerBase (M.Map Int (TrebServer FileUploadH))
+getActiveUploads = reader trebEnvActiveUploads >>= liftIO . readTVarIO
+
+getRandomUploadId :: TrebServerBase Int
+getRandomUploadId = reader trebEnvUploadIdGen >>= liftIO . atomically . nextStdGenSTM
+
+getCurrentUser :: TrebServerBase User
+getCurrentUser = do
+    maybeUser <- reader trebEnvCurrentUser
+    maybe
+        (serverError "Current user requested without authentication context.")
+        return
+        maybeUser
+
+getBaseURI :: TrebServerBase URI
+getBaseURI = reader trebEnvBaseURI
+
 getDrupalMySQLConn :: TrebServerBase MySQL.Connection
 getDrupalMySQLConn = do
     maybeConn <- reader trebEnvDrupalMySQLConn
@@ -100,39 +151,3 @@ getDrupalMySQLConn = do
 
 getPgPool :: TrebServerBase (H.Pool HP.Postgres)
 getPgPool = reader trebEnvPgPool
-
-fileUpload :: forall a. TrebServer (FileUploadH a) -> TrebServerBase URI
-fileUpload handler = do
-    uploadId <- freshUploadId
-    let p = Proxy :: Proxy (FileUploadH a)
-    return $ safeLink p p uploadId
-
-freshUploadId :: TrebServerBase Int
-freshUploadId = do
-    uploadId <- getRandomUploadId
-    uploads <- getActiveUploads
-
-    if M.member uploadId uploads then
-        freshUploadId
-    else
-        return uploadId
-
-getActiveUploads :: TrebServerBase (M.Map Int (TrebServer (forall a. FileUploadH a)))
-getActiveUploads = reader trebEnvActiveUploads >>= liftIO . readTVarIO
-
-getRandomUploadId :: TrebServerBase Int
-getRandomUploadId = do
-    idGen <- reader trebEnvUploadIdGen
-    liftIO $ atomically $ do
-        g <- readTVar idGen
-        let (i, g') = next g
-        writeTVar idGen g'
-        return i
-
-getCurrentUser :: TrebServerBase User
-getCurrentUser = do
-    maybeUser <- reader trebEnvCurrentUser
-    maybe
-        (serverError "Current user requested without authentication context.")
-        return
-        maybeUser

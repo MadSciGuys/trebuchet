@@ -28,6 +28,7 @@ module Treb.Routes.Types
     , setTrebEnvCurrentUser ) where
 
 import qualified Database.MySQL.Simple as MySQL
+import qualified Data.Aeson as A
 import Control.Concurrent.STM
 import Control.Monad.Reader (ReaderT)
 import Control.Monad.Trans.Either (EitherT)
@@ -46,28 +47,29 @@ type TrebServer layout = ServerT layout TrebServerBase
 type TrebServerBase = ReaderT TrebEnv (EitherT ServantErr IO)
 
 data TrebEnv = TrebEnv
-  { trebEnvJobTemplates :: TVar [JobTemplate]
+  { trebEnvConfig :: TrebConfig
+  , trebEnvJobTemplates :: TVar [JobTemplate]
     -- ^ This TVar is written to upon inotify events in the job templates
     -- directory.
   , trebEnvDrupalMySQLConn :: Maybe MySQL.Connection
     -- ^ This is intended for authentication.
   , trebEnvPgPool :: Pool Postgres
   , trebEnvUsername :: Maybe Text -- ^ Temporary. To be replaced by trebEnvUser
-  , trebEnvConfig :: TrebConfig
-  , trebEnvActiveUploads :: TVar (Map Int (TrebServer (forall a. FileUploadH a)))
+  , trebEnvActiveUploads :: TVar (Map Int (TrebServer FileUploadH))
   , trebEnvUploadIdGen :: TVar StdGen
   , trebEnvCurrentUser :: Maybe User
+  , trebEnvBaseURI :: URI
   }
 
 ---- Helper Types ----
 type DrupalAuth = Header "Cookie" Text
 
 -- | File upload handler Servant layout type.
-type FileUploadH ret =
+type FileUploadH =
     "file_upload" :> Capture "upload_id" Int
         :> ReqBody '[OctetStream] ByteString
         :> DrupalAuth
-        :> Post '[JSON] ret
+        :> Post '[JSON] A.Value
 
 -- Record Mutators --
 setTrebEnvJobTemplates    x env = env { trebEnvJobTemplates    = x }

@@ -22,7 +22,7 @@ import Control.Monad.IO.Class
 import Control.Monad.Trans.Class ()
 import Control.Monad.Trans.Either ()
 import Control.Monad.Identity
-import Data.Aeson ()
+import Data.Aeson (toJSON)
 import Data.CSV.Conduit
 import Data.ProtoBlob
 import ProtoDB.Parser
@@ -63,7 +63,7 @@ dataBlockCreateH msg@(DataBlockCreateMsg name maybeFields maybeRecords) = drupal
             )
         maybeRecords
 
-dataBlockCreateFileUpload :: User -> DataBlockCreateMsg -> TrebServer (FileUploadH DataBlockMetadataMsg)
+dataBlockCreateFileUpload :: User -> DataBlockCreateMsg -> TrebServer FileUploadH
 dataBlockCreateFileUpload origUser (DataBlockCreateMsg name givenFields _) uploadId uploadContent = drupalAuth $ do
     user <- getCurrentUser
     if userName origUser /= userName user then
@@ -90,7 +90,7 @@ dataBlockCreateFileUpload origUser (DataBlockCreateMsg name givenFields _) uploa
                             (parseProtoCSV csv)
                 writeUserDataBlock user name protoFields protoCells
                 -- TODO: Write entry in PostgreSQL here.
-                return $ DataBlockMetadataMsg 0 (AdHocName name (userName user)) fields (V.length csv))
+                return $ toJSON $ DataBlockMetadataMsg 0 (AdHocName name (userName user)) fields (V.length csv))
             (decodeCSV defCSVSettings uploadContent)
 
 parseProtoCSV :: V.Vector (V.Vector B.ByteString) -> Either String [ProtoCell]
