@@ -15,12 +15,12 @@ Portability: POSIX
 module Treb.Routes
     ( TrebApi
     , trebApiProxy
-    , DataBlockCreateH
-    , dataBlockCreateH ) where
+    , trebServer ) where
 
 import Servant
 
-import Treb.Routes.DataBlockCreate      ( DataBlockCreateH, dataBlockCreateH )
+import Treb.Routes.DataBlockCreate
+import Treb.Routes.FileUpload
 --import Treb.Routes.DataBlockFilter      ( DataBlockFilterH )
 --import Treb.Routes.DataBlockGet         ( DataBlockGetH )
 --import Treb.Routes.DataBlockGetMetadata ( DataBlockGetMetadataH )
@@ -31,6 +31,7 @@ import Treb.Routes.DataBlockCreate      ( DataBlockCreateH, dataBlockCreateH )
 --import Treb.Routes.UserFilter           ( UserFilterH )
 --import Treb.Routes.UserGet              ( UserGetH )
 --import Treb.Routes.JobTemplateFilter    ( JobTemplateFilterH )
+import Treb.Routes.Types
 
 ---- Trebuchet API ----
 type TrebApi =
@@ -41,6 +42,7 @@ type TrebApi =
     -- PostgreSQL to determine the DataBlockName so that it may be looked up in the
     -- server DataBlockName to DataBlock mapping.
          DataBlockCreateH
+    :<|> FileUploadH
 --    :<|> DataBlockFilterH
 --    :<|> DataBlockGetH
 --    :<|> DataBlockGetMetadataH
@@ -57,6 +59,9 @@ type TrebApi =
 --
 --    ---- Job Template ----
 --    :<|> JobTemplateFilterH
+
+trebServer :: TrebServer TrebApi
+trebServer = dataBlockCreateH :<|> fileUploadH
 
 trebApiProxy :: Proxy TrebApi
 trebApiProxy = Proxy

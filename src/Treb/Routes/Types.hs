@@ -8,7 +8,7 @@ Stability:   Provisional
 Portability: POSIX
 -}
 
-{-# LANGUAGE DataKinds, TypeOperators, OverloadedStrings, RankNTypes, ImpredicativeTypes, LiberalTypeSynonyms #-}
+{-# LANGUAGE DataKinds, TypeOperators, OverloadedStrings, RankNTypes, ImpredicativeTypes, LiberalTypeSynonyms, ExistentialQuantification #-}
 
 module Treb.Routes.Types
     ( module Servant
@@ -18,7 +18,8 @@ module Treb.Routes.Types
     , TrebEnv(..)
     , TrebConfig(..)
     , DrupalAuth
-    , FileUploadH
+    , ActiveUploads
+    , TrebServerUpload(..)
     , setTrebEnvJobTemplates
     , setTrebEnvDrupalMySQLConn
     , setTrebEnvPgPool
@@ -30,10 +31,10 @@ module Treb.Routes.Types
 
 import qualified Database.MySQL.Simple as MySQL
 import qualified Data.Aeson as A
+import qualified Data.ByteString as B
 import Control.Concurrent.STM
 import Control.Monad.Reader (ReaderT)
 import Control.Monad.Trans.Either (EitherT)
-import Data.ByteString (ByteString)
 import Data.Map (Map)
 import Data.Text (Text)
 import Hasql (Pool)
@@ -56,7 +57,7 @@ data TrebEnv = TrebEnv
     -- ^ This is intended for authentication.
   , trebEnvPgPool :: Pool Postgres
   , trebEnvUsername :: Maybe Text -- ^ Temporary. To be replaced by trebEnvUser
-  , trebEnvActiveUploads :: TVar (Map Int (TrebServer FileUploadH))
+  , trebEnvActiveUploads :: TVar ActiveUploads
   , trebEnvUploadIdGen :: TVar StdGen
   , trebEnvCurrentUser :: Maybe User
   , trebEnvBaseURI :: URI
@@ -86,12 +87,9 @@ data TrebConfig = TrebConfig
 ---- Helper Types ----
 type DrupalAuth = Header "Cookie" Text
 
--- | File upload handler Servant layout type.
-type FileUploadH =
-    "file_upload" :> Capture "upload_id" Int
-        :> ReqBody '[OctetStream] ByteString
-        :> DrupalAuth
-        :> Post '[JSON] A.Value
+type ActiveUploads = Map (Text, Int) TrebServerUpload
+
+data TrebServerUpload = forall a. A.ToJSON a => TrebServerUpload (B.ByteString -> TrebServerBase a)
 
 -- Record Mutators --
 setTrebEnvJobTemplates    x env = env { trebEnvJobTemplates    = x }

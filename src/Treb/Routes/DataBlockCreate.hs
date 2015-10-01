@@ -22,7 +22,6 @@ import Control.Monad.IO.Class
 import Control.Monad.Trans.Class ()
 import Control.Monad.Trans.Either ()
 import Control.Monad.Identity
-import Data.Aeson (toJSON)
 import Data.CSV.Conduit
 import Data.ProtoBlob
 import ProtoDB.Parser
@@ -31,6 +30,7 @@ import ProtoDB.Writer
 import Treb.Routes.Helpers
 import Treb.Routes.Types
 import Treb.Types
+import Treb.Routes.FileUpload
 
 ---- Route-Specific Type ----
 type DataBlockCreateH =
@@ -44,7 +44,7 @@ dataBlockCreateH msg@(DataBlockCreateMsg name maybeFields maybeRecords) = drupal
     user <- getCurrentUser
     maybe
         (do
-            uri <- fileUpload (dataBlockCreateFileUpload user msg)
+            uri <- newFileUpload (dataBlockCreateFileUpload msg)
             return $ NoWrapEither $ Left $ DataBlockFileUploadMsg uri)
         (\records ->
             maybe
@@ -63,35 +63,32 @@ dataBlockCreateH msg@(DataBlockCreateMsg name maybeFields maybeRecords) = drupal
             )
         maybeRecords
 
-dataBlockCreateFileUpload :: User -> DataBlockCreateMsg -> TrebServer FileUploadH
-dataBlockCreateFileUpload origUser (DataBlockCreateMsg name givenFields _) uploadId uploadContent = drupalAuth $ do
+dataBlockCreateFileUpload :: DataBlockCreateMsg -> B.ByteString -> TrebServerBase DataBlockMetadataMsg
+dataBlockCreateFileUpload (DataBlockCreateMsg name givenFields _) uploadContent = do
     user <- getCurrentUser
-    if userName origUser /= userName user then
-        serverError "Uploader is not the initiator of this DataBlock creation transaction."
-    else
-        either
-            (clientError CEInvalidCSV . T.pack . show)
-            (\csv -> do
-                -- Check consistency of uploaded CSV and the user-specified set of fields.
-                fields <- maybe
-                    (serverError "CSV upload without explicit fields is unimplemented. TODO.")
-                    -- TODO: Check consistency of values in CSV. --
-                    return
-                    givenFields
-                -- Calculate protocol buffer fields from Trebuchet fields.
-                protoFields <- mapM (\field ->
-                    if vectorShape field /= [] then
-                        clientError CEInvalidCSV "CSV may not contain vector fields."
-                    else
-                        return $ WritableField (fieldName field) (fieldType field) []) fields
-                protoCells <- either
-                            (clientError CEInvalidCSV . T.pack)
-                            return
-                            (parseProtoCSV csv)
-                writeUserDataBlock user name protoFields protoCells
-                -- TODO: Write entry in PostgreSQL here.
-                return $ toJSON $ DataBlockMetadataMsg 0 (AdHocName name (userName user)) fields (V.length csv))
-            (decodeCSV defCSVSettings uploadContent)
+    either
+        (clientError CEInvalidCSV . T.pack . show)
+        (\csv -> do
+            -- Check consistency of uploaded CSV and the user-specified set of fields.
+            fields <- maybe
+                (serverError "CSV upload without explicit fields is unimplemented. TODO.")
+                -- TODO: Check consistency of values in CSV. --
+                return
+                givenFields
+            -- Calculate protocol buffer fields from Trebuchet fields.
+            protoFields <- mapM (\field ->
+                if vectorShape field /= [] then
+                    clientError CEInvalidCSV "CSV may not contain vector fields."
+                else
+                    return $ WritableField (fieldName field) (fieldType field) []) fields
+            protoCells <- either
+                        (clientError CEInvalidCSV . T.pack)
+                        return
+                        (parseProtoCSV csv)
+            writeUserDataBlock user name protoFields protoCells
+            -- TODO: Write entry in PostgreSQL here.
+            return $ DataBlockMetadataMsg 0 (AdHocName name (userName user)) fields (V.length csv))
+        (decodeCSV defCSVSettings uploadContent)
 
 parseProtoCSV :: V.Vector (V.Vector B.ByteString) -> Either String [ProtoCell]
 parseProtoCSV =

@@ -10,7 +10,6 @@ import Network.Wai.Handler.WarpTLS
 import Treb.Config
 import Treb.Routes
 import Treb.Routes.Types
-import Treb.Types
 
 ---- Important Functions ----
 main :: IO ()
@@ -34,6 +33,3 @@ trebWarpSettings env =
 
 trebApp :: TrebEnv -> Application
 trebApp = serve trebApiProxy . flip enter trebServer . runReaderTNat
-
-trebServer :: TrebServer TrebApi
-trebServer = dataBlockCreateH

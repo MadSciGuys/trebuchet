@@ -28,7 +28,6 @@ import Control.Monad.Trans.Either
 import Data.Aeson
 import Data.List (find)
 import Data.Maybe
-import Data.Proxy
 import Data.Text (Text)
 import Data.Text.Encoding
 import Network.URI
@@ -92,25 +91,17 @@ queryPG ex stmt = do
         return
         res
 
-fileUpload :: TrebServer FileUploadH -> TrebServerBase URI
-fileUpload handler = do
-    uploadId <- freshUploadId
-    -- Add the fresh Upload ID to the active upload map.
-    reader trebEnvActiveUploads >>= liftIO . atomically . flip modifyTVar (M.insert uploadId handler)
-    baseURI <- getBaseURI
-    let p = Proxy :: Proxy FileUploadH
-    return $ safeLink p p uploadId `relativeTo` baseURI
-
 freshUploadId :: TrebServerBase Int
 freshUploadId = do
+    user <- getCurrentUser
     idGen <- reader trebEnvUploadIdGen
     activeUploadsTVar <- reader trebEnvActiveUploads
-    liftIO $ atomically $ readTVar activeUploadsTVar >>= findNewUploadId idGen
+    liftIO $ atomically $ readTVar activeUploadsTVar >>= findNewUploadId idGen user
     where
-      findNewUploadId idGen uploads = do
+      findNewUploadId idGen user uploads = do
                   uploadId <- nextStdGenSTM idGen
-                  if M.member uploadId uploads then
-                      findNewUploadId idGen uploads
+                  if M.member (userName user, uploadId) uploads then
+                      findNewUploadId idGen user uploads
                   else
                       return uploadId
 
@@ -122,7 +113,7 @@ nextStdGenSTM idGen = do
   return i
 
 -- Environment Accessors --
-getActiveUploads :: TrebServerBase (M.Map Int (TrebServer FileUploadH))
+getActiveUploads :: TrebServerBase ActiveUploads
 getActiveUploads = reader trebEnvActiveUploads >>= liftIO . readTVarIO
 
 getRandomUploadId :: TrebServerBase Int
@@ -149,3 +140,16 @@ getDrupalMySQLConn = do
 
 getPgPool :: TrebServerBase (H.Pool HP.Postgres)
 getPgPool = reader trebEnvPgPool
+
+-- TVar Modifiers --
+modifyJobTemplates  :: ([JobTemplate] -> [JobTemplate]) -> TrebServerBase ()
+modifyJobTemplates  = (reader trebEnvJobTemplates >>=) . tvarModify
+
+modifyActiveUploads :: (ActiveUploads -> ActiveUploads) -> TrebServerBase ()
+modifyActiveUploads = (reader trebEnvActiveUploads >>=) . tvarModify
+
+modifyUploadIdGen   :: (StdGen -> StdGen) -> TrebServerBase ()
+modifyUploadIdGen   = (reader trebEnvUploadIdGen >>=) . tvarModify
+
+tvarModify :: (a -> a) -> TVar a -> TrebServerBase ()
+tvarModify = (liftIO .) . (atomically .) . flip modifyTVar
