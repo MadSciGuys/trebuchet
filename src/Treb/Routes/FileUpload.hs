@@ -38,12 +38,12 @@ fileUploadH uploadId uploadContent = drupalAuth $ do
   user <- getCurrentUser
   let key = (userName user, uploadId)
   -- TODO: Track file upload handlers and give more helpful error feedback accordingly. Should be able to tell if the upload existed and if so, whether it expired or has already been used.
-  jsonResponse <- maybe
+  maybe
           (serverError "Upload path invalid. The file upload handle has expired, has already been used, or has never existed.")
-          (\(TrebServerUpload uploadHandler) -> liftM toJSON (uploadHandler uploadContent))
+          (\(TrebServerUpload uploadHandler) -> do
+             modifyActiveUploads $ M.delete key
+             liftM toJSON $ uploadHandler uploadContent)
           (M.lookup key activeUploads)
-  modifyActiveUploads $ M.delete key
-  return jsonResponse
 
 newFileUpload :: forall a. ToJSON a => (B.ByteString -> TrebServerBase a) -> TrebServerBase URI
 newFileUpload handler = do
