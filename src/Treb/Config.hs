@@ -146,6 +146,7 @@ processArgs conf (x:y:xs) | x == "-w" || x == "--pg-password"            = proce
 processArgs conf (x:y:xs) | x == "-s" || x == "--pg-database"            = processArgs (conf { confPGDatabase     = Just y }) xs
 processArgs conf (x:y:xs) | x == "-m" || x == "--pg-pool-max"            = processArgs (conf { confPGPoolMax      = Just y }) xs
 processArgs conf (x:y:xs) | x == "-l" || x == "--pg-conn-lifetime"       = processArgs (conf { confPGConnLifetime = Just y }) xs
+processArgs conf (x:y:xs) | x == "-B" || x == "--base-uri"               = processArgs (conf { confBaseURI        = Just y }) xs
 processArgs conf (x:_)                                                   = left $ "ERROR: Invalid command-line argument \'" ++ x ++ "\'."
 
 getPool :: TrebConfig -> EitherT String IO (H.Pool HP.Postgres)
@@ -220,7 +221,8 @@ defaultTrebConfig = TrebConfig
     , confPGPassword     = Nothing
     , confPGDatabase     = Nothing
     , confPGPoolMax      = Nothing
-    , confPGConnLifetime = Nothing }
+    , confPGConnLifetime = Nothing
+    , confBaseURI        = Nothing }
 
 ifDebugMode :: Monad m => TrebConfig -> m a -> m (Maybe a)
 ifDebugMode conf action = bool (return Nothing) (action >>= return . Just) (confDebugMode conf)

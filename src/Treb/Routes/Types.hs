@@ -16,6 +16,7 @@ module Treb.Routes.Types
     , TrebServer
     , TrebServerBase
     , TrebEnv(..)
+    , TrebConfig(..)
     , DrupalAuth
     , FileUploadH
     , setTrebEnvJobTemplates
@@ -60,6 +61,27 @@ data TrebEnv = TrebEnv
   , trebEnvCurrentUser :: Maybe User
   , trebEnvBaseURI :: URI
   }
+
+data TrebConfig = TrebConfig
+  { confDebugMode      :: Bool
+  , confPort           :: Int
+  , confJobTemplateDir :: String
+  , confSSLCertPath    :: Maybe String
+  , confSSLCertKeyPath :: Maybe String
+  , confOAHost         :: Maybe String
+  , confOAPort         :: Maybe String
+  , confOADatabase     :: Maybe String
+  , confOAUsername     :: Maybe String
+  , confOAPassword     :: Maybe String
+  , confOADomain       :: Maybe String
+  , confPGHost         :: Maybe String
+  , confPGPort         :: Maybe String
+  , confPGUsername     :: Maybe String
+  , confPGPassword     :: Maybe String
+  , confPGDatabase     :: Maybe String
+  , confPGPoolMax      :: Maybe String
+  , confPGConnLifetime :: Maybe String
+  , confBaseURI        :: Maybe String }
 
 ---- Helper Types ----
 type DrupalAuth = Header "Cookie" Text

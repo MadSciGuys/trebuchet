@@ -505,27 +505,6 @@ data Job = Job {
   , jobResult     :: Maybe [DataBlockName]
   } deriving (Eq, Show)
 
-data TrebConfig = TrebConfig
-  { confDebugMode      :: Bool
-  , confPort           :: Int
-  , confJobTemplateDir :: String
-  , confSSLCertPath    :: Maybe String
-  , confSSLCertKeyPath :: Maybe String
-  , confOAHost         :: Maybe String
-  , confOAPort         :: Maybe String
-  , confOADatabase     :: Maybe String
-  , confOAUsername     :: Maybe String
-  , confOAPassword     :: Maybe String
-  , confOADomain       :: Maybe String
-  , confPGHost         :: Maybe String
-  , confPGPort         :: Maybe String
-  , confPGUsername     :: Maybe String
-  , confPGPassword     :: Maybe String
-  , confPGDatabase     :: Maybe String
-  , confPGPoolMax      :: Maybe String
-  , confPGConnLifetime :: Maybe String
-  , confBaseURI        :: Maybe String }
-
 type JobTemplateMap = MVar (M.Map T.Text (MVar JobTemplate))
 
 type JobConfigMap = MVar (M.Map T.Text (MVar JobConfig))
