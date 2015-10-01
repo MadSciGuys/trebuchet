@@ -109,10 +109,17 @@ getEnv = do
   activeUploads <- liftIO $ newTVarIO M.empty
   uploadIdGen <- liftIO $ newTVarIO =<< getStdGen
 
-  let baseURI = fromMaybe nullURI $ confBaseURI conf >>= parseURI
+  maybe (left "No --base-uri specified.")
+        (bool (left "Invalid --base-uri given.")
+              (return ()))
+        (isURI <$> confBaseURI conf)
+
+  baseURI <- fromMaybe
+         (left "Failed to parse value given to --base-uri.")
+         (confBaseURI conf >>= fmap right . parseURI)
 
   -- Construct the Trebuchet environment
-  return $ TrebEnv
+  return TrebEnv
     { trebEnvJobTemplates    = jobTemplates
     , trebEnvDrupalMySQLConn = drupalMySQLConn
     , trebEnvUsername        = Nothing
