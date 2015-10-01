@@ -87,7 +87,8 @@ queryPG ex stmt = do
     pool <- getPgPool
     res <- liftIO $ H.session pool (H.tx Nothing (ex stmt :: H.Tx HP.Postgres s r) :: H.Session HP.Postgres IO r)
     either
-        (lift . left . const err500 { errBody = "Postgres failure." }) -- TODO: errBody = B.toStrict $ encodeUtf8 $ pack $ show err
+        -- TODO: errBody = B.toStrict $ encodeUtf8 $ pack $ show err
+        (lift . left . const err500 { errBody = "Postgres failure." })
         return
         res
 
@@ -95,13 +96,10 @@ fileUpload :: TrebServer FileUploadH -> TrebServerBase URI
 fileUpload handler = do
     uploadId <- freshUploadId
     -- Add the fresh Upload ID to the active upload map.
-    reader trebEnvActiveUploads >>= (liftIO . atomically . flip modifyTVar (M.insert uploadId handler)) 
+    reader trebEnvActiveUploads >>= liftIO . atomically . flip modifyTVar (M.insert uploadId handler)
     baseURI <- getBaseURI
-    -- TODO: Use Servant's safeLink function to generate a type-consistent link.
     let p = Proxy :: Proxy FileUploadH
-    --(URI "" Nothing ("file_upload/" ++ show uploadId) "" "") 
-    return $ safeLink p p uploadId
-               `relativeTo` baseURI
+    return $ safeLink p p uploadId `relativeTo` baseURI
 
 freshUploadId :: TrebServerBase Int
 freshUploadId = do
