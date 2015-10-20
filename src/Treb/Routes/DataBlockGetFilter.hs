@@ -10,37 +10,38 @@ Portability: POSIX
 
 {-# LANGUAGE DataKinds, TypeOperators, OverloadedStrings #-}
 
-module Treb.Routes.DataBlockGetFilter ( DataBlockGetFilterH, dataBlockGetFilterH ) where
+--module Treb.Routes.DataBlockGetFilter ( DataBlockGetFilterH, dataBlockGetFilterH ) where
+module Treb.Routes.DataBlockGetFilter where
 
 import Treb.Routes.Types
 import qualified Data.Text as T
 
 ---- Route-Specific Type ----
-type DataBlockGetFilterH =
-    "datablock" :> Capture "datablock_id" DataBlockId :> "filter"
-        :> ReqBody '[JSON] DataBlockGetFilterMsg
-        :> Post '[JSON] DataBlockRecords
+--type DataBlockGetFilterH =
+--    "datablock" :> Capture "datablock_id" DataBlockId :> "filter"
+--        :> ReqBody '[JSON] DataBlockGetFilterMsg
+--        :> Post '[JSON] DataBlockRecords
 
-dataBlockGetFilterH :: TrebServer DataBlockGetFilterH
-dataBlockGetFilterH dbId msg = do
+--dataBlockGetFilterH :: TrebServer DataBlockGetFilterH
+--dataBlockGetFilterH dbId msg = do
     -- db <- getDataBlock dbId
     -- if isWhiteList msg then
     --     columns msg
     -- columns msg
 
-data DataBlockGetFilterMsg = DataBlockGetFilterMsg 
-    { columns      :: [T.Text]
-    , isWhiteList  :: Bool
-    , recordFilter :: DataBlockRecordFilter }
-
-instance FromJSON DataBlockGetFilterMsg where
-    parseJSON (Object v) =
-        (DataBlockGetFilterMsg <$> v .: "column_whitelist"
-                               <*> pure True
-                               <*> v .: "record_filter") <|>
-        (DataBlockGetFilterMsg <$> v .: "column_blacklist"
-                               <*> pure False
-                               <*> v .: "record_filter")
+--data DataBlockGetFilterMsg = DataBlockGetFilterMsg 
+--    { columns      :: [T.Text]
+--    , isWhiteList  :: Bool
+--    , recordFilter :: DataBlockRecordFilter }
+--
+--instance FromJSON DataBlockGetFilterMsg where
+--    parseJSON (Object v) =
+--        (DataBlockGetFilterMsg <$> v .: "column_whitelist"
+--                               <*> pure True
+--                               <*> v .: "record_filter") <|>
+--        (DataBlockGetFilterMsg <$> v .: "column_blacklist"
+--                               <*> pure False
+--                               <*> v .: "record_filter")
 
 ---------------
 -- Game Plan --

@@ -293,6 +293,12 @@ data Paging = -- | Linear sampling returns every nth point in the result set.
             | Contiguous
             deriving (Eq, Ord, Show)
 
+-- | Result set field selector, consisting of a list of field names acting as
+--   either a whitelist or a blacklist.
+data FieldSelector =
+                     WhiteList [T.Text]
+                   | BlackList [T.Text]
+
 -- | Datablock record query, consisting of a 'Filter RecordReader' and optional
 --   sorting and paging directives.
 data Query = Query {
@@ -305,6 +311,8 @@ data Query = Query {
     --   to the 'Ord' instance). The 'T.Text' is the name of the field to sort
     --   on, which must be indexed.
   , qSort      :: Maybe (Bool, T.Text)
+    -- | Optional field selection directive.
+  , qList      :: Maybe FieldSelector
     -- | Query result paging strategy.
   , qPage      :: Paging
   } deriving (Eq, Ord, Show)

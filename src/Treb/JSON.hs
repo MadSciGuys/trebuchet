@@ -261,21 +261,41 @@ instance FromJSON Paging where
                   "contiguous"      -> return Contiguous
                   _                 -> fail "invalid paging_type"
 
+instance ToJSON FieldSelector where
+    toJSON (WhiteList fs) = typeObject "field_selector"
+            [ "field_selector_op" .= "whitelist"
+            , "field_selector_list" .= fs
+            ]
+    toJSON (BlackList fs) = typeObject "field_selector"
+            [ "field_selector_op" .= "blacklist"
+            , "field_selector_list" .= fs
+            ]
+
+instance FromJSON FieldSelector where
+    parseJSON (Object v) = do
+        "field_selector" <- v .: "type"
+        o <- v .: "field_selector_op"
+        case o of "whitelist" -> WhiteList <$> v .: "field_selector_list"
+                  "blacklist" -> BlackList <$> v .: "field_selector_list"
+                  _           -> field "invalid field_selector_op"
+
 instance ToJSON Query where
-    toJSON (Query n f s p) = typeObject "query"
+    toJSON (Query n f s l p) = typeObject "query"
             [ "query_datablock_name" .= n
             , "query_filter" .= f
             , "query_sort" .= s
+            , "query_list" .= l
             , "query_paging" .= p
             ]
 
 instance FromJSON Query where
     parseJSON (Object v) = do
         "query" <- v .: "type"
-        Query <$> v .: "query_datablock_name"
-              <*> v .: "query_filter"
-              <*> v .: "query_sort"
-              <*> v .: "query_paging"
+        Query <$> v .:  "query_datablock_name"
+              <*> v .:  "query_filter"
+              <*> v .:? "query_sort"
+              <*> v .:? "query_list"
+              <*> v .:  "query_paging"
 
 instance ToJSON NewDataBlock where
     toJSON (NewDataBlock n o fs) = typeObject "new_datablock"
