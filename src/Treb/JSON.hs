@@ -28,15 +28,12 @@ import Data.Aeson
 import Data.Aeson.Types (Parser)
 import Data.ByteString.Base64.Lazy as B
 import Data.ByteString.Lazy as BL
-import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as M
 import Data.Maybe
-import Data.Monoid
 import qualified Data.Text as T
 import Data.Text.Encoding as E
 import qualified Data.Text.Lazy as TL
 import Data.Text.Lazy.Encoding as EL
-import Control.Monad
 import qualified ProtoDB.Types as P
 import Text.ProtocolBuffers.Basic
 import Treb.Filter
@@ -44,17 +41,7 @@ import Treb.Types
 
 default (T.Text)
 
-setType :: T.Text -> Value -> Value
-setType ty (Object v) = Object (HM.insert "type" (String ty) v)
-setType ty _ = error "setType applied to non-object Aeson Value."
-
 typeObject = (object .) . (:) . ("type" .=)
-
-assertType :: Object -> [Char] -> Parser ()
-assertType v expectedTy = do
-    actualTy <- v .: "type" 
-    unless (actualTy == expectedTy) $
-        fail $ "Expected type '" <> expectedTy <> "' does not match actual type '" <> actualTy <> "'."
 
 instance ToJSON DataBlockName where
     toJSON (AdHocName n user) = typeObject "datablock_name"
@@ -82,9 +69,13 @@ instance FromJSON DataBlockName where
     parseJSON (Object v) = do
         "datablock_name" <- v .: "type"
         t <- v .: "datablock_name_type"
-        case t of AdHocType     -> AdHocName <$> v .: "datablock_name" <*> v .: "datablock_name_creator"
-                  RecipeType    -> RecipeName <$> v .: "datablock_name_compound" <*> v .: "datablock_name_recipes" <*> v .: "datablock_name_pipeline"
-                  JobResultType -> JobResultName <$> v .: "datablock_job_id" <*> v .: "datablock_name"
+        case t of AdHocType     -> AdHocName <$> v .: "datablock_name"
+                                             <*> v .: "datablock_name_creator"
+                  RecipeType    -> RecipeName <$> v .: "datablock_name_compound"
+                                              <*> v .: "datablock_name_recipes"
+                                              <*> v .: "datablock_name_pipeline"
+                  JobResultType -> JobResultName <$> v .: "datablock_job_id"
+                                                 <*> v .: "datablock_name"
                   AliasType     -> AliasName <$> v .: "datablock_name"
 
 instance ToJSON DataBlockNameType where
@@ -99,6 +90,77 @@ instance FromJSON DataBlockNameType where
     parseJSON (String "job_result")  = return JobResultType
     parseJSON (String "alias")       = return AliasType
     parseJSON _                      = fail "bad data_block_name_type"
+
+instance ToJSON DataBlockFilter where
+    toJSON (NameType t) = typeObject "datablock_filter"
+            [ "datablock_filter_op" .= "name_type"
+            , "datablock_filter_name_type" .= t
+            ]
+    toJSON (NameExact n) = typeObject "datablock_filter"
+            [ "datablock_filter_op" .= "name_exact"
+            , "datablock_filter_name" .= n
+            ]
+    toJSON (NameRegex e) = typeObject "datablock_filter"
+            [ "datablock_filter_op" .= "name_regex"
+            , "datablock_filter_name_regex" .= e
+            ]
+    toJSON (IdExact i) = typeObject "datablock_filter"
+            [ "datablock_filter_op" .= "id_exact"
+            , "datablock_filter_id" .= i
+            ]
+    toJSON Owned = typeObject "datablock_filter"
+            [ "datablock_filter_op" .= "owned" ]
+    toJSON (UserIdExact i) = typeObject "datablock_filter"
+            [ "datablock_filter_op" .= "user_id_exact"
+            , "datablock_filter_user_id" .= i
+            ]
+    toJSON (UserNameExact n) = typeObject "datablock_filter"
+            [ "datablock_filter_op" .= "user_name_exact"
+            , "datablock_filter_user_name" .= n
+            ]
+    toJSON (UserNameRegex e) = typeObject "datablock_filter"
+            [ "datablock_filter_op" .= "user_name_regex"
+            , "datablock_fitler_user_name_regex" .= e
+            ]
+    toJSON (RealNameExact n) = typeObject "datablock_filter"
+            [ "datablock_filter_op" .= "real_name_exact"
+            , "datablock_filter_real_name" .= n
+            ]
+    toJSON (RealNameRegex e) = typeObject "datablock_filter"
+            [ "datablock_filter_op" .= "real_name_regex"
+            , "datablock_fitler_real_name_regex" .= e
+            ]
+    toJSON (EmailExact a) = typeObject "datablock_filter"
+            [ "datablock_filter_op" .= "email_exact"
+            , "datablock_filter_email" .= a
+            ]
+    toJSON (EmailRegex e) = typeObject "datablock_filter"
+            [ "datablock_filter_op" .= "email_regex"
+            , "datablock_fitler_email_regex" .= e
+            ]
+    toJSON (ContainsField f) = typeObject "datablock_filter"
+            [ "datablock_filter_op" .= "contains_field"
+            , "datablock_fitler_field" .= f
+            ]
+
+instance FromJSON DataBlockFilter where
+    parseJSON (Object v) = do
+        "datablock_filter" <- v .: "type"
+        o <- v .: "datablock_filter_op"
+        case o of "name_type"       -> NameType <$> v .: "datablock_filter_name_type"
+                  "name_exact"      -> NameExact <$> v .: "datablock_filter_name"
+                  "name_regex"      -> NameRegex <$> v .: "datablock_filter_name_regex"
+                  "hash_exact"      -> IdExact <$> v .: "datablock_filter_hash"
+                  "owned"           -> return Owned
+                  "user_id_exact"   -> UserIdExact <$> v .: "datablock_filter_user_id"
+                  "user_name_exact" -> UserNameExact <$> v .: "datablock_filter_user_name"
+                  "user_name_regex" -> UserNameRegex <$> v .: "datablock_filter_user_name_regex"
+                  "real_name_exact" -> RealNameExact <$> v .: "datablock_filter_real_name"
+                  "real_name_regex" -> RealNameRegex <$> v .: "datablock_filter_real_name_regex"
+                  "email_exact"     -> EmailExact <$> v .: "datablock_filter_email"
+                  "email_regex"     -> EmailRegex <$> v .: "datablock_filter_email_regex"
+                  "contains_field"  -> ContainsField <$> v .: "datablock_filter_field"
+                  _                 -> fail "invalid datablock_filter_op"
 
 instance ToJSON DataBlockField where
     toJSON (DataBlockField n t s i m) = typeObject "datablock_field"
@@ -118,30 +180,64 @@ instance FromJSON DataBlockField where
                        <*> v .: "datablock_field_indexed"
                        <*> v .: "datablock_field_mime_type"
 
-instance ToJSON P.ProtoCellType where
-    toJSON P.ProtoIntType      = "int"
-    toJSON P.ProtoRealType     = "real"
-    toJSON P.ProtoStringType   = "string"
-    toJSON P.ProtoDateTimeType = "datetime"
-    toJSON P.ProtoBinaryType   = "binary"
-
-instance FromJSON P.ProtoCellType where
-    parseJSON (String "int")      = return P.ProtoIntType
-    parseJSON (String "real")     = return P.ProtoRealType
-    parseJSON (String "string")   = return P.ProtoStringType
-    parseJSON (String "datetime") = return P.ProtoDateTimeType
-    parseJSON (String "binary")   = return P.ProtoBinaryType
-
--- -- | Note that this instance encodes only the datablock metadata.
+-- | Note that this instance encodes only the datablock metadata.
 instance ToJSON DataBlock where
-    toJSON (DataBlock n h o _ fs _ _ s rs) = typeObject "datablock"
+    toJSON (DataBlock n i o _ fs _ _ s rs) = typeObject "datablock"
             [ "datablock_name" .= n
-            , "datablock_hash" .= h
+            , "datablock_id" .= i
             , "datablock_owner" .= o
             , "datablock_fields" .= fs
             , "datablock_byte_size" .= s
             , "datablock_record_count" .= rs
             ]
+
+instance ToJSON DataBlockRecordFilter where
+    toJSON (FieldEq f v) = typeObject "datablock_record_filter"
+            [ "datablock_record_filter_op" .= "eq"
+            , "datablock_record_filter_field" .= f
+            , "datablock_record_filter_value" .= v
+            ]
+    toJSON (FieldGt f v) = typeObject "datablock_record_filter"
+            [ "datablock_record_filter_op" .= "gt"
+            , "datablock_record_filter_field" .= f
+            , "datablock_record_filter_value" .= v
+            ]
+    toJSON (FieldGtEq f v) = typeObject "datablock_record_filter"
+            [ "datablock_record_filter_op" .= "gteq"
+            , "datablock_record_filter_field" .= f
+            , "datablock_record_filter_value" .= v
+            ]
+    toJSON (FieldLt f v) = typeObject "datablock_record_filter"
+            [ "datablock_record_filter_op" .= "lt"
+            , "datablock_record_filter_field" .= f
+            , "datablock_record_filter_value" .= v
+            ]
+    toJSON (FieldLtEq f v) = typeObject "datablock_record_filter"
+            [ "datablock_record_filter_op" .= "lteq"
+            , "datablock_record_filter_field" .= f
+            , "datablock_record_filter_value" .= v
+            ]
+
+instance FromJSON DataBlockRecordFilter where
+    parseJSON (Object v) = do
+        "datablock_record_filter" <- v .: "type"
+        o <- v .: "datablock_record_filter_op"
+        case o of "eq"   -> FieldEq <$>
+                            v .: "datablock_record_filter_field" <*>
+                            v .: "datablock_record_filter_value"
+                  "gt"   -> FieldGt <$>
+                            v .: "datablock_record_filter_field" <*>
+                            v .: "datablock_record_filter_value"
+                  "gteq" -> FieldGtEq <$>
+                            v .: "datablock_record_filter_field" <*>
+                            v .: "datablock_record_filter_value"
+                  "lt"   -> FieldLt <$>
+                            v .: "datablock_record_filter_field" <*>
+                            v .: "datablock_record_filter_value"
+                  "lteq" -> FieldLtEq <$>
+                            v .: "datablock_record_filter_field" <*>
+                            v .: "datablock_record_filter_value"
+                  _      -> fail "invalid datablock_record_filter_op"
 
 instance ToJSON Paging where
     toJSON (LinearSampling n) = typeObject "paging"
@@ -163,6 +259,7 @@ instance FromJSON Paging where
                   "linear_chunking" -> LinearChunking <$> v .: "paging_n"
                   "bisection"       -> return Bisection
                   "contiguous"      -> return Contiguous
+                  _                 -> fail "invalid paging_type"
 
 instance ToJSON Query where
     toJSON (Query n f s p) = typeObject "query"
@@ -180,25 +277,32 @@ instance FromJSON Query where
               <*> v .: "query_sort"
               <*> v .: "query_paging"
 
--- instance ToJSON NewDataBlock where
---     toJSON (NewDataBlock n o f) = typeObject "new_datablock"
---             [ "new_datablock_name" .= n
---             , "new_datablock_owner" .= o
---             , "new_datablock_fields" .= f
---             ]
--- 
--- instance FromJSON NewDataBlock where
---     parseJSON (Object v) = do
---         "new_datablock" <- v .: "type"
---         NewDataBlock <$> v .: "new_datablock_name"
---                      <*> v .: "new_datablock_owner"
---                      <*> v .: "new_datablock_fields"
--- 
--- instance FromJSON Auth where
---     parseJSON (Object v) = do
---         "auth" <- v .: "type"
---         Auth <$> v .: "auth_username" <*> v .: "auth_password"
--- 
+instance ToJSON NewDataBlock where
+    toJSON (NewDataBlock n o fs) = typeObject "new_datablock"
+            [ "new_datablock_name" .= n
+            , "new_datablock_owner" .= o
+            , "new_datablock_fields" .= fs
+            ]
+
+instance FromJSON NewDataBlock where
+    parseJSON (Object v) = do
+        "new_datablock" <- v .: "type"
+        NewDataBlock <$> v .: "new_datablock_name"
+                     <*> v .: "new_datablock_owner"
+                     <*> v .: "new_datablock_fields"
+
+instance ToJSON Auth where
+    toJSON (Auth u p) = typeObject "auth"
+            [ "auth_username" .= u
+            , "auth_password" .= p
+            ]
+
+instance FromJSON Auth where
+    parseJSON (Object v) = do
+        "auth" <- v .: "type"
+        Auth <$> v .: "auth_username"
+             <*> v .: "auth_password"
+
 instance ToJSON User where
     toJSON (User i un rn e) = typeObject "user"
             [ "user_id" .= i
@@ -207,61 +311,54 @@ instance ToJSON User where
             , "user_email" .= e
             ]
 
+instance FromJSON User where
+    parseJSON (Object v) = do
+        "user" <- v .: "type"
+        User <$> v .: "user_id"
+             <*> v .: "user_name"
+             <*> v .: "user_real_name"
+             <*> v .: "user_email"
+
 instance ToJSON JobArgType where
-    toJSON ty =
-      typeObject "job_arg_type" $
-        [ "job_arg_type" .=
-            case ty of
-              BoolArgType ->
-                "bool"
-              IntArgType ->
-                "int"
-              RealArgType ->
-                "real"
-              StringArgType ->
-                "string"
-              EnumArgType _ ->
-                "enum"
-              RegexArgType _ ->
-                "regex"
-              DataBlockNameArgType ->
-                "datablock_name"
-              DataBlockFieldArgType ->
-                "datablock_field"
-              DataBlockTagArgType ->
-                "datablock_tag"
-              VectorArgType _ _ ->
-                "vector"
-        ] ++ case ty of
-              EnumArgType es ->
-                [ "enum" .= es ]
-              RegexArgType r ->
-                [ "regex" .= r ]
-              VectorArgType sh vty ->
-                [ "vector"       .= vty
-                , "vector_shape" .= sh ]
-              _ ->
-                []
+    toJSON BoolArgType      = typeObject "job_arg_type" ["job_arg_type" .= "bool"]
+    toJSON IntArgType       = typeObject "job_arg_type" ["job_arg_type" .= "int"]
+    toJSON RealArgType      = typeObject "job_arg_type" ["job_arg_type" .= "real"]
+    toJSON StringArgType    = typeObject "job_arg_type" ["job_arg_type" .= "string"]
+    toJSON (EnumArgType vs) = typeObject "job_arg_type"
+            [ "job_arg_type" .= "enum"
+            , "job_arg_type_enums" .= vs
+            ]
+    toJSON (RegexArgType rs) = typeObject "job_arg_type"
+            [ "job_arg_type" .= "regex"
+            , "job_arg_type_regex" .= rs
+            ]
+    toJSON DataBlockNameArgType = typeObject "job_arg_type"
+            [ "job_arg_type" .= "datablock_name" ]
+    toJSON DataBlockFieldArgType = typeObject "job_arg_type"
+            [ "job_arg_type" .= "datablock_field" ]
+    toJSON DataBlockTagArgType = typeObject "job_arg_type"
+            [ "job_arg_type" .= "datablock_tag" ]
+    toJSON (VectorArgType s t) = typeObject "job_arg_type"
+            [ "job_arg_type" .= "vector"
+            , "job_arg_type_shape" .= s
+            , "job_arg_type_types" .= t
+            ]
 
 instance FromJSON JobArgType where
     parseJSON (Object v) = do
-        "job_arg_type" <- v .: "type"
+        "job_arg_type" <- v .: "job_arg_type"
         t <- v .: "job_arg_type"
-        case t of
-          "bool"            -> return BoolArgType
-          "int"             -> return IntArgType
-          "real"            -> return RealArgType
-          "string"          -> return StringArgType
-          "datablock_name"  -> return DataBlockNameArgType
-          "datablock_field" -> return DataBlockFieldArgType
-          "datablock_tag"   -> return DataBlockTagArgType
-          "enum"            ->
-            EnumArgType <$> v .: "enum"
-          "regex" ->
-            RegexArgType <$> v .: "regex"
-          "vector" ->
-            VectorArgType <$> v .:? "vector_shape"
-                          <*> v .: "vector"
+        case t of "bool"   -> return BoolArgType
+                  "int"    -> return IntArgType
+                  "real"   -> return RealArgType
+                  "string" -> return StringArgType
+                  "enum"   -> EnumArgType <$> v .: "job_arg_type_enums"
+                  "regex"  -> RegexArgType <$> v .: "job_arg_type_regex"
+                  "datablock_name" -> return DataBlockNameArgType
+                  "datablock_field" -> return DataBlockFieldArgType
+                  "datablock_tag" -> return DataBlockTagArgType
+                  "vector" -> VectorArgType <$> v .:? "job_arg_type_shape"
+                                            <*> v .:  "job_arg_type_types"
 
 instance ToJSON JobArg where
     toJSON (BoolArg b) = typeObject "job_arg"
@@ -288,6 +385,15 @@ instance ToJSON JobArg where
             [ "job_arg_type" .= "regex_arg"
             , "job_arg_value" .= s
             ]
+    toJSON (DataBlockNameArg n) = typeObject "job_arg"
+            [ "job_arg_type" .= "datablock_name_arg"
+            , "job_arg_value" .= n
+            ]
+    toJSON (DataBlockFieldArg n f) = typeObject "job_arg"
+            [ "job_arg_type" .= "datablock_field_arg"
+            , "job_arg_datablock" .= n
+            , "job_arg_field" .= f
+            ]
     toJSON (DataBlockTagArg t) = typeObject "job_arg"
             [ "job_arg_type" .= "datablock_tag_arg"
             , "job_arg_value" .= t
@@ -300,16 +406,19 @@ instance ToJSON JobArg where
 instance FromJSON JobArg where
     parseJSON (Object v) = do
         "job_arg" <- v .: "type"
-        t <- v .: "arg_type"
+        t <- v .: "job_arg_type"
         case t of "bool_arg"            -> BoolArg <$> v .: "job_arg_value"
                   "int_arg"             -> IntArg <$> v .: "job_arg_value"
                   "real_arg"            -> RealArg <$> v .: "job_arg_value"
                   "string_arg"          -> StringArg <$> v .: "job_arg_value"
                   "enum_arg"            -> EnumArg <$> v .: "job_arg_value"
                   "regex_arg"           -> RegexArg <$> v .: "job_arg_value"
+                  "datablock_name_arg"  -> DataBlockNameArg <$> v .: "job_arg_value"
+                  "datablock_field_arg" -> DataBlockFieldArg <$> v .: "job_arg_datablock"
+                                                             <*> v .: "job_arg_field"
                   "datablock_tag_arg"   -> DataBlockTagArg <$> v .: "job_arg_value"
-                  "vector_arg" -> VectorArg <$> v .: "job_arg_value"
-                  _            -> fail "bad job_arg_type in job_arg"
+                  "vector_arg"          -> VectorArg <$> v .: "job_arg_value"
+                  _                     -> fail "bad job_arg_type in job_arg"
 
 andList :: JobArgVal -> JobArgVal -> [JobArgVal]
 andList (JobArgAnd l r) (JobArgAnd l' r') = andList l r ++ andList l' r'
@@ -375,44 +484,47 @@ instance FromJSON JobArgVal where
                   "and"  -> v .: "job_arg_val_ands" >>= andUnlist
                   "or"   -> v .: "job_arg_val_ors"  >>= orUnlist
                   "xor"  -> v .: "job_arg_val_xors" >>= xorUnlist
+                  _      -> fail "invalid job_arg_val_clause"
+
+instance ToJSON JobParam where
+    toJSON (JobParam dn kn de df c at) = typeObject "job_param"
+        [ "job_param_disp_name" .= dn
+        , "job_param_key_name" .= kn
+        , "job_param_desc" .= de
+        , "job_param_default" .= df
+        , "job_param_category" .= c
+        , "job_param_arg_type" .= at
+        ]
+
+instance FromJSON JobParam where
+    parseJSON (Object v) = do
+        "job_param" <- v .: "type"
+        JobParam <$> v .:  "job_param_disp_name"
+                 <*> v .:  "job_param_key_name"
+                 <*> v .:? "job_param_desc"
+                 <*> v .:? "job_param_default"
+                 <*> v .:  "job_param_category"
+                 <*> v .:  "job_param_arg_type"
 
 instance ToJSON JobTemplate where
     toJSON (JobTemplate i n d ps c ts) = typeObject "job_template"
             [ "job_template_id"             .= i
             , "job_template_name"           .= n
             , "job_template_description"    .= d
-            , "job_template_params"         .= [ snd p | p <- (M.toList ps) ]
+            , "job_template_params"         .= ps
             , "job_template_constraints"    .= c
-            , "job_template_datablock_tags" .= ts ]
+            , "job_template_datablock_tags" .= ts
+            ]
 
 instance FromJSON JobTemplate where
     parseJSON (Object v) = do
         "job_template" <- v .: "type"
         JobTemplate <$> v .:  "job_template_id"
                     <*> v .:  "job_template_name"
-                    <*> v .:  "job_template_description"
-                    <*> fmap (M.fromList . Prelude.map (\jtp -> (jobParamKeyName jtp, jtp))) (v .:  "job_template_params")
+                    <*> v .:? "job_template_description"
+                    <*> v .:  "job_template_params"
                     <*> v .:? "job_template_constraints"
                     <*> v .:  "job_template_datablock_tags"
-
-instance ToJSON JobParam where
-    toJSON (JobParam n k desc def cat ty) = typeObject "parameter"
-        [ "display_name"   .= n
-        , "key_name"       .= k
-        , "description"    .= desc
-        , "default"        .= def
-        , "category"       .= cat
-        , "parameter_type" .= ty ]
-
-instance FromJSON JobParam where
-    parseJSON (Object v) = do
-        "parameter" <- v .: "type"
-        JobParam <$> v .:  "display_name"
-                 <*> v .:  "key_name"
-                 <*> v .:? "description"
-                 <*> v .:? "default"
-                 <*> v .:  "category"
-                 <*> v .:  "parameter_type"
 
 instance ToJSON JobConfig where
     toJSON (JobConfig n t a d) = typeObject "job_config"
@@ -442,17 +554,6 @@ instance ToJSON JobError where
             , "job_error_time" .= t
             ]
 
---instance FromJSON JobError where
---    parseJSON (Object v) = do
---        "job_error" <- v .: "type"
---        t <- v .: "error_type"
---        case t of "job_canceled" -> JobCanceled <$>
---                                        v .: "job_error_canceler" <*>
---                                        v .: "job_error_cancel_time"
---                  "job_failure"  -> JobFailure <$>
---                                        v .: "job_error_string" <*>
---                                        v .: "job_error_time"
-
 instance ToJSON Job where
     toJSON (Job i e c s st r) = typeObject "job"
             [ "job_id"               .= i
@@ -460,7 +561,8 @@ instance ToJSON Job where
             , "job_config"           .= c
             , "job_start_time"       .= s
             , "job_status"           .= st
-            , "job_result_datablock" .= r ]
+            , "job_result_datablock" .= r
+            ]
 
 instance ToJSON (Filter (M.Map DataBlockName DataBlock)) where
     toJSON (FilterAtom a) = typeObject "filter"
@@ -506,6 +608,7 @@ instance FromJSON (Filter (M.Map DataBlockName DataBlock)) where
                   "neg"  -> FilterNeg <$> v .: "filter_neg"
                   "conj" -> v .: "filter_conj" >>= conjUnlist
                   "disj" -> v .: "filter_disj" >>= disjUnlist
+                  _      -> fail "invalid filter_op"
 
 instance FromJSON (Filter RecordReader) where
     parseJSON (Object v) = do
@@ -515,123 +618,7 @@ instance FromJSON (Filter RecordReader) where
                   "neg"  -> FilterNeg <$> v .: "filter_neg"
                   "conj" -> v .: "filter_conj" >>= conjUnlist
                   "disj" -> v .: "filter_disj" >>= disjUnlist
-
-instance ToJSON DataBlockFilter where
-    toJSON (NameType t) = typeObject "datablock_filter"
-            [ "datablock_filter_op" .= "name_type"
-            , "datablock_filter_name_type" .= t
-            ]
-    toJSON (NameExact n) = typeObject "datablock_filter"
-            [ "datablock_filter_op" .= "name_exact"
-            , "datablock_filter_name" .= n
-            ]
-    toJSON (NameRegex e) = typeObject "datablock_filter"
-            [ "datablock_filter_op" .= "name_regex"
-            , "datablock_filter_name_regex" .= e
-            ]
-    toJSON (IdExact i) = typeObject "datablock_filter"
-            [ "datablock_filter_op" .= "hash_exact"
-            , "datablock_filter_hash" .= i
-            ]
-    toJSON Owned = typeObject "datablock_filter"
-            [ "datablock_filter_op" .= "owned" ]
-    toJSON (UserIdExact i) = typeObject "datablock_filter"
-            [ "datablock_filter_op" .= "user_id_exact"
-            , "datablock_filter_user_id" .= i
-            ]
-    toJSON (UserNameExact n) = typeObject "datablock_filter"
-            [ "datablock_filter_op" .= "user_name_exact"
-            , "datablock_filter_user_name" .= n
-            ]
-    toJSON (UserNameRegex e) = typeObject "datablock_filter"
-            [ "datablock_filter_op" .= "user_name_regex"
-            , "datablock_fitler_user_name_regex" .= e
-            ]
-    toJSON (RealNameExact n) = typeObject "datablock_filter"
-            [ "datablock_filter_op" .= "real_name_exact"
-            , "datablock_filter_real_name" .= n
-            ]
-    toJSON (RealNameRegex e) = typeObject "datablock_filter"
-            [ "datablock_filter_op" .= "real_name_regex"
-            , "datablock_fitler_real_name_regex" .= e
-            ]
-    toJSON (EmailExact a) = typeObject "datablock_filter"
-            [ "datablock_filter_op" .= "email_exact"
-            , "datablock_filter_email" .= a
-            ]
-    toJSON (EmailRegex e) = typeObject "datablock_filter"
-            [ "datablock_filter_op" .= "email_regex"
-            , "datablock_fitler_email_regex" .= e
-            ]
-    toJSON (ContainsField f) = typeObject "datablock_filter"
-            [ "datablock_filter_op" .= "contains_field"
-            , "datablock_fitler_field" .= f
-            ]
-
-instance FromJSON DataBlockFilter where
-    parseJSON (Object v) = do
-        "datablock_filter" <- v .: "type"
-        o <- v .: "datablock_filter_op"
-        case o of "name_type"       -> NameType <$> v .: "datablock_filter_name_type"
-                  "name_exact"      -> NameExact <$> v .: "datablock_filter_name"
-                  "name_regex"      -> NameRegex <$> v .: "datablock_filter_name_regex"
-                  "hash_exact"      -> IdExact <$> v .: "datablock_filter_hash"
-                  "owned"           -> return Owned
-                  "user_id_exact"   -> UserIdExact <$> v .: "datablock_filter_user_id"
-                  "user_name_exact" -> UserNameExact <$> v .: "datablock_filter_user_name"
-                  "user_name_regex" -> UserNameRegex <$> v .: "datablock_filter_user_name_regex"
-                  "real_name_exact" -> RealNameExact <$> v .: "datablock_filter_real_name"
-                  "real_name_regex" -> RealNameRegex <$> v .: "datablock_filter_real_name_regex"
-                  "email_exact"     -> EmailExact <$> v .: "datablock_filter_email"
-                  "email_regex"     -> EmailRegex <$> v .: "datablock_filter_email_regex"
-                  "contains_field"  -> ContainsField <$> v .: "datablock_filter_field"
-
-instance ToJSON DataBlockRecordFilter where
-    toJSON (FieldEq f v) = typeObject "datablock_record_filter"
-            [ "datablock_record_filter_op" .= "eq"
-            , "datablock_record_filter_field" .= f
-            , "datablock_record_filter_value" .= v
-            ]
-    toJSON (FieldGt f v) = typeObject "datablock_record_filter"
-            [ "datablock_record_filter_op" .= "gt"
-            , "datablock_record_filter_field" .= f
-            , "datablock_record_filter_value" .= v
-            ]
-    toJSON (FieldGtEq f v) = typeObject "datablock_record_filter"
-            [ "datablock_record_filter_op" .= "gteq"
-            , "datablock_record_filter_field" .= f
-            , "datablock_record_filter_value" .= v
-            ]
-    toJSON (FieldLt f v) = typeObject "datablock_record_filter"
-            [ "datablock_record_filter_op" .= "lt"
-            , "datablock_record_filter_field" .= f
-            , "datablock_record_filter_value" .= v
-            ]
-    toJSON (FieldLtEq f v) = typeObject "datablock_record_filter"
-            [ "datablock_record_filter_op" .= "lteq"
-            , "datablock_record_filter_field" .= f
-            , "datablock_record_filter_value" .= v
-            ]
-
-instance FromJSON DataBlockRecordFilter where
-    parseJSON (Object v) = do
-        "datablock_record_filter" <- v .: "type"
-        o <- v .: "datablock_record_filter_op"
-        case o of "eq"   -> FieldEq <$>
-                            v .: "datablock_record_filter_field" <*>
-                            v .: "datablock_record_filter_value"
-                  "gt"   -> FieldGt <$>
-                            v .: "datablock_record_filter_field" <*>
-                            v .: "datablock_record_filter_value"
-                  "gteq" -> FieldGtEq <$>
-                            v .: "datablock_record_filter_field" <*>
-                            v .: "datablock_record_filter_value"
-                  "lt"   -> FieldLt <$>
-                            v .: "datablock_record_filter_field" <*>
-                            v .: "datablock_record_filter_value"
-                  "lteq" -> FieldLtEq <$>
-                            v .: "datablock_record_filter_field" <*>
-                            v .: "datablock_record_filter_value"
+                  _      -> fail "invalid filter_op"
 
 instance ToJSON P.ProtoCell where
     toJSON (P.ProtoIntCell i) = typeObject "cell"
@@ -724,32 +711,16 @@ instance ToJSON ClientErrorCode where
   toJSON CEUserNotFound         = String "user_not_found"
   toJSON CEInvalidCSV           = String "invalid_csv"
 
-instance ToJSON DataBlockCreateMsg where
-    toJSON (DataBlockCreateMsg name fields records) = setType "datablock_create" $
-        object
-            [ "datablock_create_name"    .= name
-            , "datablock_create_fields"  .= fields
-            , "datablock_create_records" .= records ]
+instance ToJSON P.ProtoCellType where
+    toJSON P.ProtoIntType      = "int"
+    toJSON P.ProtoRealType     = "real"
+    toJSON P.ProtoStringType   = "string"
+    toJSON P.ProtoDateTimeType = "datetime"
+    toJSON P.ProtoBinaryType   = "binary"
 
-instance FromJSON DataBlockCreateMsg where
-    parseJSON (Object v) = do
-        assertType v "datablock_create"
-        DataBlockCreateMsg <$> v .: "datablock_create_name"
-                           <*> v .:? "datablock_create_fields"
-                           <*> v .:? "datablock_create_records"
-
-instance ToJSON DataBlockFileUploadMsg where
-    toJSON (DataBlockFileUploadMsg url) = setType "datablock_file_upload" $
-        object
-            [ "upload_url" .= toJSON (show url) ]
-
-instance ToJSON DataBlockMetadataMsg where
-    toJSON (DataBlockMetadataMsg id name fields recordCount) = setType "datablock_metadata" $
-        object
-            [ "datablock_id"            .= id
-            , "datablock_name"          .= name
-            , "datablock_fields"        .= fields
-            , "datablock_record_countd" .= recordCount ]
-
-instance (ToJSON l, ToJSON r) => ToJSON (NoWrapEither l r) where
-    toJSON (NoWrapEither e) = either toJSON toJSON e
+instance FromJSON P.ProtoCellType where
+    parseJSON (String "int")      = return P.ProtoIntType
+    parseJSON (String "real")     = return P.ProtoRealType
+    parseJSON (String "string")   = return P.ProtoStringType
+    parseJSON (String "datetime") = return P.ProtoDateTimeType
+    parseJSON (String "binary")   = return P.ProtoBinaryType

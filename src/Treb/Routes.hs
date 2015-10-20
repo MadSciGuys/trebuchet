@@ -41,8 +41,9 @@ type TrebApi =
     -- That ought to be done at a later point. This will require a query to
     -- PostgreSQL to determine the DataBlockName so that it may be looked up in the
     -- server DataBlockName to DataBlock mapping.
-         DataBlockCreateH
-    :<|> FileUploadH
+--         DataBlockCreateH
+--    :<|> FileUploadH
+    FileUploadH
 --    :<|> DataBlockFilterH
 --    :<|> DataBlockGetH
 --    :<|> DataBlockGetMetadataH
@@ -61,7 +62,8 @@ type TrebApi =
 --    :<|> JobTemplateFilterH
 
 trebServer :: TrebServer TrebApi
-trebServer = dataBlockCreateH :<|> fileUploadH
+--trebServer = dataBlockCreateH :<|> fileUploadH
+trebServer = fileUploadH
 
 trebApiProxy :: Proxy TrebApi
 trebApiProxy = Proxy

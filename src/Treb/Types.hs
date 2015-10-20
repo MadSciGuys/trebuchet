@@ -38,12 +38,6 @@ import ProtoDB.Types
 import Treb.BadRegex
 import Treb.Filter
 
--- | Data pipeline.
-data DataPipeline = DataPipeline {
-    dplID   :: Word64
-  , dplName :: T.Text
-  } deriving (Eq, Ord, Show)
-
 -- | A reference to a datablock. Each datablock has at least one unique element
 --   of this type, elsewhere known as the "canonical name". 'AdHocName',
 --   'RecipeName', and 'JobResultName' values are considered canonical names,
@@ -186,11 +180,6 @@ data DataBlockField = DataBlockField {
   , mimeGuess    :: Maybe MIME.Type
   } deriving (Eq, Ord, Show)
 
--- data DataBlockFieldType = DataBlockFieldType {
---     protoType :: ProtoType
---   , mimeType  :: Maybe MimeType
---   }
-
 -- | Server-internal representation of a datablock.
 data DataBlock = DataBlock {
     -- | Canonical name (i.e. not an 'AliasName').
@@ -327,9 +316,9 @@ data NewDataBlock = NewDataBlock {
     -- | Datablock owner's user ID.
   , ndbOwner :: Word64
     -- | Map of field names to field handling directives. If the 'Bool' is
-    --   true, the field will be indexed. If a 'ProtoType' is provided, use of
-    --   the corresponding parser will be forced.
-  , ndbFields :: M.Map T.Text (Bool, Maybe ProtoType)
+    --   true, the field will be indexed. If a 'ProtoCellType' is provided, use
+    --   of the corresponding parser will be forced.
+  , ndbFields :: M.Map T.Text (Bool, Maybe ProtoCellType)
   } deriving (Eq, Show)
 
 -- | User authentication message.
@@ -354,20 +343,6 @@ data User = User {
 --   users.
 instance Eq User where
     a == b = userID a == userID b
-
--- | Displays only user metadata.
---instance Show User where
---    show (User i un rn e) = concat
---        [ "User {userID = "
---        , show i
---        , ", userName = "
---        , show un
---        , ", realName = "
---        , show rn
---        , ", emails = "
---        , show e
---        , "}"
---        ]
 
 -- | Map of user IDs to users.
 type UserMap = MVar (M.Map Word64 (MVar User))
@@ -409,9 +384,9 @@ data JobArg = -- | Boolean argument.
               -- | String argument recognized by provided regex.
             | RegexArg T.Text
               -- | 'DataBlockName' argument.
-              -- TODO: DataBlockNameArg DataBlockName
+            | DataBlockNameArg DataBlockName
               -- | Pair of 'DataBlockName' and 'DataBlockField'.
-              -- TODO: DataBlockFieldArg DataBlockName DataBlockField
+            | DataBlockFieldArg DataBlockName DataBlockField
               -- | Datablock tag argument.
             | DataBlockTagArg T.Text
               -- | Vector argument.
@@ -432,6 +407,7 @@ data JobArgVal = -- | Clause stipulating that the given argument is set.
                | JobArgNot JobArgVal
                deriving (Eq, Ord, Show)
 
+-- | Document this.
 data JobParam = JobParam {
     jobParamDispName :: T.Text
   , jobParamKeyName  :: T.Text
@@ -511,17 +487,11 @@ type JobConfigMap = MVar (M.Map T.Text (MVar JobConfig))
 
 type JobMap = MVar (M.Map Word64 (MVar Job))
 
+-- | Document this.
 data ClientError = ClientError ClientErrorCode T.Text
+
+-- | Document this.
 data ClientErrorCode = CEMissingSessionCookie | CEInvalidSessionCookie | CEUserNotFound | CEInvalidCSV
-
-data DataBlockCreateMsg = DataBlockCreateMsg T.Text (Maybe [DataBlockField]) (Maybe (V.Vector (V.Vector ProtoCell)))
-
-data DataBlockFileUploadMsg = DataBlockFileUploadMsg URI
-
--- | Consists of id, name, fields, record_count, and source (TODO).
-data DataBlockMetadataMsg = DataBlockMetadataMsg Word64 DataBlockName [DataBlockField] Int
-
-newtype NoWrapEither l r = NoWrapEither (Either l r)
 
 lookupMap :: Ord k => k -> M.Map k a -> M.Map k a
 lookupMap k m = case M.lookup k m of Nothing  -> M.empty
