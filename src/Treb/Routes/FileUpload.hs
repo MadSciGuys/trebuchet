@@ -1,6 +1,6 @@
 {-|
-Module:      Treb.Routes.DataBlockCreate
-Description: Trebuchet DataBlockCreate route type and function definitons.
+Module:      Treb.Routes.FileUpload
+Description: Trebuchet FileUpload route type and function definitons.
 Copyright:   Travis Whitaker 2015
 License:     MIT
 Maintainer:  twhitak@its.jnj.com
