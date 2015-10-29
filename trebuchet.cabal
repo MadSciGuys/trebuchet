@@ -30,6 +30,8 @@ executable trebuchet
                      , Treb.Routes.DataBlockGetFilter
                      , Treb.Routes.DataBlockGetMetadata
                      , Treb.Routes.DataBlockPutMetadata
+                     , Treb.Routes.DataBlockUpload
+                     , Treb.Routes.FileUpload
                      , Treb.Routes.Helpers
                      , Treb.Routes.JobCreate
                      , Treb.Routes.JobFilter
@@ -79,6 +81,9 @@ executable trebuchet
                      , attoparsec
                      , random
                      , network-uri
+                     , wai-cors
+                     , resourcet
+                     , wai-extra
   hs-source-dirs:      src
   default-language:    Haskell2010
   ghc-options: -O0 -fwarn-unused-imports
