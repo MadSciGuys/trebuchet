@@ -277,7 +277,7 @@ instance FromJSON FieldSelector where
         o <- v .: "field_selector_op"
         case o of "whitelist" -> WhiteList <$> v .: "field_selector_list"
                   "blacklist" -> BlackList <$> v .: "field_selector_list"
-                  _           -> field "invalid field_selector_op"
+                  _           -> fail "invalid field_selector_op"
 
 instance ToJSON Query where
     toJSON (Query n f s l p) = typeObject "query"
