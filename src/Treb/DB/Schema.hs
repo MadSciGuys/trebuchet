@@ -36,8 +36,6 @@ schemaInit = do
   sqlExec input_datablock
   sqlExec datablock_name_type_t
   sqlExec datablock_name_t
-  sqlExec datablock_source_type_t
-  sqlExec datablock_source_t
   sqlExec datablock
   sqlExec data_pipeline
 
@@ -118,29 +116,12 @@ datablock_name_t = mapM_ H.unitEx
       , "recipe_names"  varchar[]
       , "job_id"        bigint ) |] ]
 
-datablock_source_type_t :: SchemaInit
-datablock_source_type_t = mapM_ H.unitEx
-  [ [H.stmt| drop type if exists "datablock_source_type_t" cascade |]
-  , [H.stmt| create type "datablock_source_type_t" as enum
-      ( 'user'
-      , 'job'
-      , 'data_pipeline' ) |] ]
-
-datablock_source_t :: SchemaInit
-datablock_source_t = mapM_ H.unitEx
-  [ [H.stmt| drop type if exists "datablock_source_t" cascade |]
-  , [H.stmt| create type "datablock_source_t" as
-      ( "type"            datablock_source_type_t
-      , "source_username" varchar
-      , "source_id"       bigint ) |] ]
-
 datablock :: SchemaInit
 datablock = mapM_ H.unitEx
   [ [H.stmt| drop table if exists "datablock" cascade |]
   , [H.stmt| create table "datablock"
       ( "id"               bigserial primary key
-      , "datablock_name"   datablock_name_t not null
-      , "datablock_source" datablock_source_t ) |] ]
+      , "datablock_name"   datablock_name_t not null ) |] ]
 
 datablock_name :: SchemaInit
 datablock_name = mapM_ H.unitEx
