@@ -11,11 +11,12 @@ import Control.Concurrent.STM.TVar
 import Control.Exception
 import Control.Monad
 import Control.Monad.IO.Class
-import Control.Monad.Trans.Either
+import Control.Monad.Trans.Except
 import Control.Monad.STM
 import Data.Aeson
 import Data.Bool
 import Data.Bits (xor)
+import Data.Either (either)
 import Data.Maybe
 import Network.URI
 import System.FilePath
@@ -35,11 +36,11 @@ import Treb.Routes.Types
 -- | Construct a Trebuchet environment and pass it into a function in IO. This
 -- environment includes database connections and similar.
 withTrebEnv :: (TrebEnv -> IO ()) -> IO ()
-withTrebEnv f = eitherT (putStrLn . ("ERROR: " ++)) f getEnv
+withTrebEnv f = runExceptT getEnv >>= either (putStrLn . ("ERROR: " ++)) f
 
 -- Hidden Functions --
 
-getEnv :: EitherT String IO TrebEnv
+getEnv :: ExceptT String IO TrebEnv
 getEnv = do
   -- Generate configuration from command line arguments
   conf <- processArgs defaultTrebConfig =<< liftIO getArgs
@@ -48,7 +49,7 @@ getEnv = do
   pgPool <- getPool conf
 
   -- Check that SSL-related command line arguments are well formed
-  leftIf
+  exceptIf
     (isJust (confSSLCertPath conf) `xor` isJust (confSSLCertKeyPath conf))
     $ "SSL requires both -c/--ssl-certificate and -k/--ssl-certificate-key to be set."
     
@@ -58,7 +59,7 @@ getEnv = do
   cwd <- liftIO getCurrentDirectory
   jobTemplateDirExists <- liftIO $ doesFileExist jobTemplateDir
 
-  leftIf
+  exceptIf
     jobTemplateDirExists
     $ "Job template directory '" ++ (cwd </> jobTemplateDir) ++ "' not found."
 
@@ -83,18 +84,18 @@ getEnv = do
   -- Connect to the Drupal/OpenAtrium MySQL database for authentication and authorization
   drupalMySQLConn <- unlessDebugMode conf $ do
     mapM_ (\(attr, msg) ->
-      leftIf
+      exceptIf
         (isNothing $ attr conf)
         $ msg ++ " for OpenAtrium database not given.")
       [ (confOAHost,     "Host")
       , (confOAPort,     "Port")
       , (confOADatabase, "Database name")
       , (confOAUsername, "Username")
-      , (confOAPassword, "Password") ]
+      , (confOAPassword, "Password") ] :: ExceptT String IO ()
 
     liftIO $ putStrLn "Connecting to Drupal/OpenAtrium MySQL database."
 
-    oaPort <- hoistEither $ readEither $ fromJust $ confOAPort conf
+    oaPort <- either throwE return $ readEither $ fromJust $ confOAPort conf
     ret <- liftIO $ MySQL.connect $
        MySQL.defaultConnectInfo
          { MySQL.connectHost     = fromJust $ confOAHost conf
@@ -109,14 +110,14 @@ getEnv = do
   activeUploads <- liftIO $ newTVarIO M.empty
   uploadIdGen <- liftIO $ newTVarIO =<< getStdGen
 
-  maybe (left "No --base-uri specified.")
-        (bool (left "Invalid --base-uri given.")
+  maybe (throwE "No --base-uri specified.")
+        (bool (throwE "Invalid --base-uri given.")
               (return ()))
         (isURI <$> confBaseURI conf)
 
   baseURI <- fromMaybe
-         (left "Failed to parse value given to --base-uri.")
-         (confBaseURI conf >>= fmap right . parseURI)
+         (throwE "Failed to parse value given to --base-uri.")
+         (confBaseURI conf >>= fmap pure . parseURI)
 
   -- Construct the Trebuchet environment
   return TrebEnv
@@ -130,14 +131,14 @@ getEnv = do
     , trebEnvUploadIdGen     = uploadIdGen
     , trebEnvBaseURI         = baseURI }
 
-processArgs :: TrebConfig -> [String] -> EitherT String IO TrebConfig
-processArgs conf []                                                      = right conf
+processArgs :: TrebConfig -> [String] -> ExceptT String IO TrebConfig
+processArgs conf []                                                      = pure conf
 processArgs conf (x  :xs) | x == "-d" || x == "--debug"                  = processArgs (conf { confDebugMode      = True })   xs
 processArgs conf (x:y:xs) | x == "-c" || x == "--ssl-certificate"        = processArgs (conf { confSSLCertPath    = Just y }) xs
 processArgs conf (x:y:xs) | x == "-k" || x == "--ssl-certificate-key"    = processArgs (conf { confSSLCertKeyPath = Just y }) xs
 processArgs conf (x:y:xs) | x == "-t" || x == "--job-template-directory" = processArgs (conf { confJobTemplateDir = y })      xs
 processArgs conf (x:y:xs) | x == "-p" || x == "--port"                   = either
-                                                                             left
+                                                                             throwE
                                                                              (\p -> processArgs (conf { confPort  = p })      xs)
                                                                              (readEither y)
 processArgs conf (x:y:xs) | x == "-H" || x == "--oa-host"                = processArgs (conf { confOAHost         = Just y }) xs
@@ -154,12 +155,12 @@ processArgs conf (x:y:xs) | x == "-s" || x == "--pg-database"            = proce
 processArgs conf (x:y:xs) | x == "-m" || x == "--pg-pool-max"            = processArgs (conf { confPGPoolMax      = Just y }) xs
 processArgs conf (x:y:xs) | x == "-l" || x == "--pg-conn-lifetime"       = processArgs (conf { confPGConnLifetime = Just y }) xs
 processArgs conf (x:y:xs) | x == "-B" || x == "--base-uri"               = processArgs (conf { confBaseURI        = Just y }) xs
-processArgs conf (x:_)                                                   = left $ "ERROR: Invalid command-line argument \'" ++ x ++ "\'."
+processArgs conf (x:_)                                                   = throwE $ "ERROR: Invalid command-line argument \'" ++ x ++ "\'."
 
-getPool :: TrebConfig -> EitherT String IO (H.Pool HP.Postgres)
+getPool :: TrebConfig -> ExceptT String IO (H.Pool HP.Postgres)
 getPool conf = do
   mapM_ (\(attr, msg) ->
-    leftIf
+    exceptIf
       (isNothing $ attr conf)
       $ msg ++ " for PostgreSQL database not given.")
     [ (confPGHost,         "Host")
@@ -170,12 +171,12 @@ getPool conf = do
     , (confPGPoolMax,      "Maximum pool size")
     , (confPGConnLifetime, "Connection duration") ]
 
-  pgPort         <- hoistEither $ readEither $ fromJust $ confPGPort conf
-  pgPoolMax      <- hoistEither $ readEither $ fromJust $ confPGPoolMax conf
-  pgConnLifetime <- hoistEither $ readEither $ fromJust $ confPGConnLifetime conf
+  pgPort         <- either throwE return $ readEither $ fromJust $ confPGPort conf
+  pgPoolMax      <- either throwE return $ readEither $ fromJust $ confPGPoolMax conf
+  pgConnLifetime <- either throwE return $ readEither $ fromJust $ confPGConnLifetime conf
 
   maybe
-    (left "Invalid PostgreSQL pool settings.")
+    (throwE "Invalid PostgreSQL pool settings.")
     (liftIO . uncurry H.acquirePool)
     $ (,) <$> (HP.ParamSettings <$> fmap BC.pack (confPGHost conf)
                                 <*> pure pgPort

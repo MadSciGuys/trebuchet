@@ -37,22 +37,23 @@ import Treb.JSON ()
 import Treb.Routes.Types
 import Treb.Types
 import Web.Cookie
+import Control.Monad.Trans.Except
 
 drupalAuth :: TrebServerBase a -> Maybe Text -> TrebServerBase a
 drupalAuth action cookies = do
   let sessionCookie = fmap (fmap snd . find ((== "SESS249b7ba79335e5fe3b5934ff07174a20") . fst) . parseCookies . encodeUtf8) cookies
   conn <- fromJust <$> trebEnvDrupalMySQLConn <$> ask
   users <- maybe
-    (lift $ left $ err403 { errBody = encode $ ClientError CEMissingSessionCookie "Drupal session cookie is not found." })
+    (lift $ throwE $ err403 { errBody = encode $ ClientError CEMissingSessionCookie "Drupal session cookie is not found." })
     (liftIO . MySQL.query conn "SELECT atrium_users.uid, atrium_users.name, atrium_realname.realname, atrium_users.mail FROM atrium_users INNER JOIN atrium_sessions ON atrium_users.uid = atrium_sessions.uid INNER JOIN atrium_realname ON atrium_users.uid = atrium_realname.uid WHERE atrium_sessions.sid = ?" . MySQL.Only)
     sessionCookie
   case users of
     [] ->
-      lift $ left $ err403 { errBody = encode $ ClientError CEInvalidSessionCookie "Drupal session cookie was given but was not found in Drupal." }
+      lift $ throwE $ err403 { errBody = encode $ ClientError CEInvalidSessionCookie "Drupal session cookie was given but was not found in Drupal." }
     [(uid, username, realname, email)] ->
       local (setTrebEnvCurrentUser $ Just $ User uid username realname email) action
     _ ->
-      lift $ left err500 { errBody = "SQL query invalid. Returned list of usernames has more than one element." }
+      lift $ throwE err500 { errBody = "SQL query invalid. Returned list of usernames has more than one element." }
 
 getUserByUsername :: Text -> TrebServerBase User
 getUserByUsername username = do
@@ -66,11 +67,11 @@ getUserByUsername username = do
             
 
 serverError :: B.ByteString -> TrebServerBase a
-serverError msg = lift $ left $ err500 { errBody = msg }
+serverError msg = lift $ throwE $ err500 { errBody = msg }
 
 clientError :: ClientErrorCode -> Text -> TrebServerBase a
 clientError ce msg =
-  (\ ret -> lift $ left $ ret { errBody = encode $ ClientError ce msg }) $ case ce of
+  (\ ret -> lift $ throwE $ ret { errBody = encode $ ClientError ce msg }) $ case ce of
     CEMissingSessionCookie -> err403
     CEInvalidSessionCookie -> err403
     CEUserNotFound         -> err404
@@ -87,7 +88,7 @@ queryPG ex stmt = do
     res <- liftIO $ H.session pool (H.tx Nothing (ex stmt :: H.Tx HP.Postgres s r) :: H.Session HP.Postgres IO r)
     either
         -- TODO: errBody = B.toStrict $ encodeUtf8 $ pack $ show err
-        (lift . left . const err500 { errBody = "Postgres failure." })
+        (lift . throwE . const err500 { errBody = "Postgres failure." })
         return
         res
 
@@ -134,7 +135,7 @@ getDrupalMySQLConn :: TrebServerBase MySQL.Connection
 getDrupalMySQLConn = do
     maybeConn <- reader trebEnvDrupalMySQLConn
     maybe 
-      (lift $ left $ err500 { errBody = "Drupal MySQL connection is Nothing in environment." })
+      (lift $ throwE $ err500 { errBody = "Drupal MySQL connection is Nothing in environment." })
       return
       maybeConn
 
@@ -153,3 +154,6 @@ modifyUploadIdGen   = (reader trebEnvUploadIdGen >>=) . tvarModify
 
 tvarModify :: (a -> a) -> TVar a -> TrebServerBase ()
 tvarModify = (liftIO .) . (atomically .) . flip modifyTVar
+
+-- createDataBlock :: DataBlockName -> [DataBlockField] -> TrebServer DataBlock
+-- createDataBlock name fields =

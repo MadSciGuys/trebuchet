@@ -34,7 +34,6 @@ import qualified Data.Aeson as A
 import qualified Data.ByteString as B
 import Control.Concurrent.STM
 import Control.Monad.Reader (ReaderT)
-import Control.Monad.Trans.Either (EitherT)
 import Data.Map (Map)
 import Data.Text (Text)
 import Hasql (Pool)
@@ -43,10 +42,11 @@ import Servant
 import Servant.Server
 import System.Random
 import Treb.Types
+import Control.Monad.Trans.Except
 
 ---- Core Types ----
 type TrebServer layout = ServerT layout TrebServerBase
-type TrebServerBase = ReaderT TrebEnv (EitherT ServantErr IO)
+type TrebServerBase = ReaderT TrebEnv (ExceptT ServantErr IO)
 
 data TrebEnv = TrebEnv
   { trebEnvConfig :: TrebConfig
