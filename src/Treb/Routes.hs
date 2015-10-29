@@ -19,9 +19,10 @@ module Treb.Routes
 
 import Servant
 
-import Treb.Routes.DataBlockCreate
-import Treb.Routes.FileUpload
---import Treb.Routes.DataBlockFilter      ( DataBlockFilterH )
+import Treb.Routes.DataBlockUpload
+--import Treb.Routes.DataBlockCreate
+--import Treb.Routes.FileUpload
+--import Treb.Routes.DataBlockFilter
 --import Treb.Routes.DataBlockGet         ( DataBlockGetH )
 --import Treb.Routes.DataBlockGetMetadata ( DataBlockGetMetadataH )
 --import Treb.Routes.DataBlockGetFilter   ( DataBlockGetFilterH )
@@ -41,9 +42,9 @@ type TrebApi =
     -- That ought to be done at a later point. This will require a query to
     -- PostgreSQL to determine the DataBlockName so that it may be looked up in the
     -- server DataBlockName to DataBlock mapping.
+         DataBlockUploadH
 --         DataBlockCreateH
 --    :<|> FileUploadH
-    FileUploadH
 --    :<|> DataBlockFilterH
 --    :<|> DataBlockGetH
 --    :<|> DataBlockGetMetadataH
@@ -63,7 +64,7 @@ type TrebApi =
 
 trebServer :: TrebServer TrebApi
 --trebServer = dataBlockCreateH :<|> fileUploadH
-trebServer = fileUploadH
+trebServer = dataBlockUploadH -- dataBlockCreateH :<|> fileUploadH :<|> dataBlockFilterH
 
 trebApiProxy :: Proxy TrebApi
 trebApiProxy = Proxy
