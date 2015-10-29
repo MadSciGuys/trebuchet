@@ -33,7 +33,6 @@ import Data.Maybe (isJust, fromMaybe)
 import Data.Time
 import Data.Word
 import Foreign.Ptr
-import Network.URI
 import ProtoDB.Types
 import Treb.BadRegex
 import Treb.Filter
@@ -298,6 +297,7 @@ data Paging = -- | Linear sampling returns every nth point in the result set.
 data FieldSelector =
                      WhiteList [T.Text]
                    | BlackList [T.Text]
+    deriving (Eq, Ord, Show)
 
 -- | Datablock record query, consisting of a 'Filter RecordReader' and optional
 --   sorting and paging directives.
