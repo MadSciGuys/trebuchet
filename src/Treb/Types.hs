@@ -22,7 +22,7 @@ messages sent between the server and API callers.
 module Treb.Types where
 
 import qualified Codec.MIME.Type as MIME
-import qualified Data.Map as M
+import qualified Data.Map.Strict as M
 import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Vector as V
@@ -297,7 +297,7 @@ data Paging = -- | Linear sampling returns every nth point in the result set.
 data FieldSelector =
                      WhiteList [T.Text]
                    | BlackList [T.Text]
-    deriving (Eq, Ord, Show)
+                   deriving (Eq, Ord, Show)
 
 -- | Datablock record query, consisting of a 'Filter RecordReader' and optional
 --   sorting and paging directives.

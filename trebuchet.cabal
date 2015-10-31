@@ -23,6 +23,7 @@ executable trebuchet
                      , Treb.DB.Schema
                      , Treb.Filter
                      , Treb.JSON
+--                     , Treb.Index
                      , Treb.Routes
                      , Treb.Routes.DataBlockCreate
                      , Treb.Routes.DataBlockFilter
@@ -40,7 +41,6 @@ executable trebuchet
                      , Treb.Routes.UserFilter
                      , Treb.Routes.UserGet
                      , Treb.Types
-                     
   other-extensions:    OverloadedStrings, ExtendedDefaultRules
   build-depends:       base >=4.8 && <4.9
                      , aeson >=0.9 && <0.10

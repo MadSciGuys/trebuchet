@@ -28,7 +28,7 @@ import Data.Aeson
 import Data.Aeson.Types (Parser)
 import Data.ByteString.Base64.Lazy as B
 import Data.ByteString.Lazy as BL
-import qualified Data.Map as M
+import qualified Data.Map.Strict as M
 import Data.Maybe
 import qualified Data.Text as T
 import Data.Text.Encoding as E
