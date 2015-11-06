@@ -33,7 +33,6 @@ import Treb.Routes.DataBlockUpload
 --import Treb.Routes.UserGet              ( UserGetH )
 --import Treb.Routes.JobTemplateFilter    ( JobTemplateFilterH )
 import Treb.Routes.Types
-import Treb.Index
 
 ---- Trebuchet API ----
 type TrebApi =
