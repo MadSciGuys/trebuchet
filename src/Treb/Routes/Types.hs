@@ -1,14 +1,16 @@
 {-|
 Module:      Treb.Routes.Types
 Description: Types used by route handlers and their callees.
-Copyright:   Travis Whitaker 2015
+Copyright:   Travis Whitaker 2016
 License:     MIT
 Maintainer:  twhitak@its.jnj.com
 Stability:   Provisional
 Portability: POSIX
 -}
 
-{-# LANGUAGE DataKinds, TypeOperators, OverloadedStrings, RankNTypes, ImpredicativeTypes, LiberalTypeSynonyms, ExistentialQuantification #-}
+{-# LANGUAGE DataKinds, TypeOperators, OverloadedStrings, RankNTypes,
+             ImpredicativeTypes, LiberalTypeSynonyms,
+             ExistentialQuantification #-}
 
 module Treb.Routes.Types
     ( module Servant
@@ -20,7 +22,7 @@ module Treb.Routes.Types
     , DrupalAuth
     , ActiveUploads
     , TrebServerUpload(..)
-    , setTrebEnvJobTemplates
+    -- , setTrebEnvJobTemplates
     , setTrebEnvDrupalMySQLConn
     , setTrebEnvPgPool
     , setTrebEnvUsername
@@ -50,7 +52,7 @@ type TrebServerBase = ReaderT TrebEnv (ExceptT ServantErr IO)
 
 data TrebEnv = TrebEnv
   { trebEnvConfig :: TrebConfig
-  , trebEnvJobTemplates :: TVar [JobTemplate]
+  -- , trebEnvJobTemplates :: TVar [JobTemplate]
     -- ^ This TVar is written to upon inotify events in the job templates
     -- directory.
   , trebEnvDrupalMySQLConn :: Maybe MySQL.Connection
@@ -61,12 +63,20 @@ data TrebEnv = TrebEnv
   , trebEnvUploadIdGen :: TVar StdGen
   , trebEnvCurrentUser :: Maybe User
   , trebEnvBaseURI :: URI
+  , trebEnvDataBlockMap   :: DataBlockMap
+  , trebEnvUserMap        :: UserMap
+  , trebEnvJobTemplateMap :: JobTemplateMap
+  , trebEnvJobConfigMap   :: JobConfigMap
+  , trebEnvJobMap         :: JobMap
   }
 
+instance Show TrebEnv where
+    show _ = "<TrebEnv>"
+
 data TrebConfig = TrebConfig
-  { confDebugMode      :: Bool
-  , confPort           :: Int
-  , confJobTemplateDir :: String
+  { confDebugMode      :: Maybe Bool
+  , confPort           :: Maybe String
+  , confJobTemplateDir :: Maybe String
   , confSSLCertPath    :: Maybe String
   , confSSLCertKeyPath :: Maybe String
   , confOAHost         :: Maybe String
@@ -92,7 +102,7 @@ type ActiveUploads = Map (Text, Int) TrebServerUpload
 data TrebServerUpload = forall a. A.ToJSON a => TrebServerUpload (B.ByteString -> TrebServerBase a)
 
 -- Record Mutators --
-setTrebEnvJobTemplates    x env = env { trebEnvJobTemplates    = x }
+-- setTrebEnvJobTemplates    x env = env { trebEnvJobTemplates    = x }
 setTrebEnvDrupalMySQLConn x env = env { trebEnvDrupalMySQLConn = x }
 setTrebEnvPgPool          x env = env { trebEnvPgPool          = x }
 setTrebEnvUsername        x env = env { trebEnvUsername        = x }

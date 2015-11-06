@@ -15,10 +15,8 @@ import Treb.Routes.Types
 
 ---- Route-Specific Type ----
 type DataBlockFilterH =
-    "datablock" :> "filter"
-        :> ReqBody '[JSON] DataBlockFilter
-        :> Post '[JSON] DataBlock
+    "datablock" :> "all"
+        :> Get '[JSON] [DataBlock]
 
 dataBlockFilterH :: TrebServer DataBlockFilterH
 dataBlockFilterH = do
-    FilterAtom ()

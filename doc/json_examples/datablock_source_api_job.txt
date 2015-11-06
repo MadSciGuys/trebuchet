@@ -1,7 +1,0 @@
-{
-    "type": "datablock_source",
-
-    # Each successful API Job generates exactly one DataBlock as output. This source corresponds with one of those.
-    "datablock_source_type": "api_job",
-    "datablock_source_job_id": "134"
-}

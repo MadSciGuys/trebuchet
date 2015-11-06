@@ -1,7 +1,7 @@
 {-|
 Module:      Treb.Routes.JobTemplateFilter
 Description: Trebuchet JobTemplateFilter route type and function definitons.
-Copyright:   Travis Whitaker 2015
+Copyright:   Travis Whitaker 2016
 License:     MIT
 Maintainer:  twhitak@its.jnj.com
 Stability:   Provisional

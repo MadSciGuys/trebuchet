@@ -1,7 +1,7 @@
 {-|
 Module:      Treb.Routes
 Description: Trebuchet types.
-Copyright:   Travis Whitaker 2015
+Copyright:   Travis Whitaker 2016
 License:     MIT
 Maintainer:  twhitak@its.jnj.com
 Stability:   Provisional
@@ -33,7 +33,6 @@ import Treb.Routes.DataBlockUpload
 --import Treb.Routes.UserGet              ( UserGetH )
 --import Treb.Routes.JobTemplateFilter    ( JobTemplateFilterH )
 import Treb.Routes.Types
-import Treb.Index
 
 ---- Trebuchet API ----
 type TrebApi =

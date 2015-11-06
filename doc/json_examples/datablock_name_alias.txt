@@ -1,8 +1,0 @@
-{
-    "type": "datablock_name",
-
-    # DataBlock aliases are user-specified and unique.
-    # This may change to have an added username so that each user can have their own unique alias namespace.
-    "datablock_name_type": "alias",
-    "datablock_name_text": "Stupifying Data Plot"
-}

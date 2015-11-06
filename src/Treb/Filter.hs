@@ -1,9 +1,9 @@
 {-|
 Module:      Treb.Filter
 Description: Generic filtering language.
-Copyright:   Travis Whitaker 2015
+Copyright:   Travis Whitaker 2016
 License:     MIT
-Maintainer:  twhitka@its.jnj.com
+Maintainer:  twhitak@its.jnj.com
 Stability:   Provisional
 Portability: POSIX
 

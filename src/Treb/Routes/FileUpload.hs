@@ -1,14 +1,15 @@
 {-|
 Module:      Treb.Routes.FileUpload
 Description: Trebuchet FileUpload route type and function definitons.
-Copyright:   Travis Whitaker 2015
+Copyright:   Travis Whitaker 2016
 License:     MIT
 Maintainer:  twhitak@its.jnj.com
 Stability:   Provisional
 Portability: POSIX
 -}
 
-{-# LANGUAGE DataKinds, TypeOperators, OverloadedStrings, ExistentialQuantification #-}
+{-# LANGUAGE DataKinds, TypeOperators, OverloadedStrings,
+             ExistentialQuantification #-}
 
 module Treb.Routes.FileUpload ( FileUploadH, fileUploadH, newFileUpload ) where
 

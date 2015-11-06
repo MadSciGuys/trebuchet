@@ -1,35 +1,33 @@
-{-# LANGUAGE DataKinds, PolyKinds, RankNTypes, TypeFamilies, TypeOperators,
-             ScopedTypeVariables, OverloadedStrings, FlexibleContexts #-}
-module Main where
+{-|
+Module:      Main
+Description: Entry point module of the Trebuchet server.
+Copyright:   Travis Whitaker 2016
+License:     MIT
+Maintainer:  twhitak@its.jnj.com
+Stability:   Provisional
+Portability: POSIX
+-}
+module Main ( main ) where
 
-import Data.Bool
-import Data.Maybe
-import Network.Wai
-import Network.Wai.Handler.Warp
-import Network.Wai.Handler.WarpTLS
 import Treb.Config
-import Treb.Routes
-import Treb.Routes.Types
+import Treb.Env
+import Treb.DB.Schema
 
----- Important Functions ----
+-- | Entry point of Trebuchet server.
 main :: IO ()
-main =
-  withTrebEnv $ \ env ->
-    bool
-      runSettings
-      (runTLS $ fromJust $ tlsSettings <$> confSSLCertPath (trebEnvConfig env) <*> confSSLCertKeyPath (trebEnvConfig env))
-      (useSSL env)
-      (trebWarpSettings env)
-      (trebApp env)
-      
-useSSL :: TrebEnv -> Bool
-useSSL env = isJust (confSSLCertPath $ trebEnvConfig env) && isJust (confSSLCertKeyPath $ trebEnvConfig env)
-
-trebWarpSettings :: TrebEnv -> Settings
-trebWarpSettings env =
-  foldl (flip ($)) defaultSettings
-    [ setBeforeMainLoop $ putStrLn "Trebuchet is ready."
-    , setPort $ confPort $ trebEnvConfig env ]
-
-trebApp :: TrebEnv -> Application
-trebApp = serve trebApiProxy . flip enter trebServer . runReaderTNat
+main = do
+    cmd <- getTrebCmd
+    case cmd of
+        RunCmd config -> do
+            init <- getTrebInit config
+            case init of
+                Left e ->
+                    putStrLn $ "Trebuchet initialization failed.\n" ++ e
+                Right _ ->
+                    return ()
+        DBCmd subcmd ->
+            case subcmd of
+                DBInitCmd config ->
+                    initSchema config
+                DBDropCmd config -> do
+                    dropSchema config

@@ -1,7 +1,7 @@
 {-|
 Module:      Treb.Routes.Helpers
 Description: Helper functions that return into TrebServerBase.
-Copyright:   Travis Whitaker 2015
+Copyright:   Travis Whitaker 2016
 License:     MIT
 Maintainer:  twhitak@its.jnj.com
 Stability:   Provisional
@@ -11,6 +11,7 @@ Portability: POSIX
 {-# LANGUAGE DataKinds, PolyKinds, RankNTypes, TypeFamilies, TypeOperators,
              ScopedTypeVariables, OverloadedStrings, FlexibleContexts,
              LiberalTypeSynonyms, ImpredicativeTypes #-}
+
 module Treb.Routes.Helpers where
 
 import qualified Data.ByteString.Lazy as B
@@ -143,8 +144,8 @@ getPgPool :: TrebServerBase (H.Pool HP.Postgres)
 getPgPool = reader trebEnvPgPool
 
 -- TVar Modifiers --
-modifyJobTemplates  :: ([JobTemplate] -> [JobTemplate]) -> TrebServerBase ()
-modifyJobTemplates  = (reader trebEnvJobTemplates >>=) . tvarModify
+--modifyJobTemplates  :: ([JobTemplate] -> [JobTemplate]) -> TrebServerBase ()
+--modifyJobTemplates  = (reader trebEnvJobTemplates >>=) . tvarModify
 
 modifyActiveUploads :: (ActiveUploads -> ActiveUploads) -> TrebServerBase ()
 modifyActiveUploads = (reader trebEnvActiveUploads >>=) . tvarModify

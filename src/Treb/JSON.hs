@@ -1,7 +1,7 @@
 {-|
 Module:      Treb.JSON
 Description: ToJSON/FromJSON Instances.
-Copyright:   Travis Whitaker 2015
+Copyright:   Travis Whitaker 2016
 License:     MIT
 Maintainer:  twhitak@its.jnj.com
 Stability:   Provisional

@@ -1,7 +1,7 @@
 {-|
 Module:      Treb.Types
 Description: Trebuchet types.
-Copyright:   Travis Whitaker 2015
+Copyright:   Travis Whitaker 2016
 License:     MIT
 Maintainer:  twhitak@its.jnj.com
 Stability:   Provisional
@@ -12,12 +12,8 @@ objects of exchange (datablocks, queries, jobs, users, etc.) and discrete
 messages sent between the server and API callers.
 -}
 
-{-# LANGUAGE TypeFamilies
-           , FlexibleInstances
-           , TypeSynonymInstances
-           , StandaloneDeriving
-           , LambdaCase
-           #-}
+{-# LANGUAGE TypeFamilies, FlexibleInstances, TypeSynonymInstances,
+             StandaloneDeriving, LambdaCase #-}
 
 module Treb.Types where
 
@@ -205,7 +201,7 @@ data DataBlock = DataBlock {
   }
 
 -- | Map of datablock names to datablocks.
-type DataBlockMap = MVar (M.Map DataBlockName (MVar DataBlock))
+type DataBlockMap = MVar (M.Map DataBlockName DataBlock)
 
 -- | Map of field names to field indices, which are maps from unique field
 --   values to the 'S.Set' of memory map offset and row byte count pairs.
@@ -326,7 +322,7 @@ data NewDataBlock = NewDataBlock {
     -- | Map of field names to field handling directives. If the 'Bool' is
     --   true, the field will be indexed. If a 'ProtoCellType' is provided, use
     --   of the corresponding parser will be forced.
-  , ndbFields :: M.Map T.Text (Bool, Maybe ProtoCellType)
+  , ndbFields :: [DataBlockField]
   } deriving (Eq, Show)
 
 -- | User authentication message.
@@ -432,6 +428,7 @@ data JobTemplate = JobTemplate {
     jobTemplateId     :: Word64
     -- | Job template name.
   , jobTemplateName   :: T.Text
+    -- | Description of the job template.
   , jobTemplateDesc   :: Maybe T.Text
     -- | Job template parameter set, specifiying which arguments /may/ be
     --   present, with optional default vaule.

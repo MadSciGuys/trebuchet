@@ -1,22 +1,21 @@
 {-|
 Module:      Treb.Routes.DataBlockUpload
 Description: Trebuchet DataBlockUpload route type and function definitons.
-Copyright:   Travis Whitaker 2015
+Copyright:   Travis Whitaker 2016
 License:     MIT
 Maintainer:  twhitak@its.jnj.com
 Stability:   Provisional
 Portability: POSIX
 -}
 
-{-# LANGUAGE DataKinds, TypeOperators, OverloadedStrings, ExistentialQuantification #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE DataKinds, TypeOperators, OverloadedStrings, TypeFamilies
+             ExistentialQuantification, FlexibleInstances, ScopedTypeVariables,
+             TypeSynonymInstances #-}
 
 module Treb.Routes.DataBlockUpload ( DataBlockUploadH, dataBlockUploadH ) where
 
 import qualified Data.ByteString as B
+import qualified Data.ByteString.Lazy as L
 import qualified Data.Map as M
 import Control.Monad.IO.Class
 import Control.Monad.Reader
@@ -45,23 +44,29 @@ import Network.Wai
 import Network.Wai.Parse
 import Servant.API
 
+-- During datablock upload, we would like to begin processing the file contents.
 type DataBlockUploadH =
     "datablock_upload"
-        :> Files
-        :> DrupalAuth
+        :> ReqBody '[OctetStream] L.ByteString
+        -- :> Files
+        -- :> DrupalAuth
         :> Post '[JSON] DataBlockUploadResp
 
 dataBlockUploadH :: TrebServer DataBlockUploadH
-dataBlockUploadH (params, files) = drupalAuth $ do
+dataBlockUploadH body = do -- (params, files) = do
+    let x = BL.lines body
+    liftIO $ putStrLn "Begin"
+    mapM_ (const $ liftIO $ putStrLn "progress") x
+    return $ DataBlockUploadResp "test" []
     -- liftIO $ mapM_ ppFile files
-    let Just dbf = find (\(name, _) -> name == "datablock-file") files
-    -- liftIO $ mapM_ print params
-    let dbContent = fileContent $ snd dbf
-    let rows = map (BL.split ',') $ BL.lines dbContent :: [[BL.ByteString]]
-    let colTys = tallyRowHeuristic $ tail rows
-    return $ DataBlockUploadResp
-        (T.pack $ takeBaseName $ T.unpack $ decodeUtf8 $ fileName $ snd dbf)
-        (zip (map (decodeUtf8 . BL.toStrict) $ head rows) colTys)
+    --let Just dbf = find (\(name, _) -> name == "datablock-file") files
+    ---- liftIO $ mapM_ print params
+    --let dbContent = fileContent $ snd dbf
+    --let rows = map (BL.split ',') $ BL.lines dbContent :: [[BL.ByteString]]
+    --let colTys = tallyRowHeuristic $ tail rows
+    --return $ DataBlockUploadResp
+    --    (T.pack $ takeBaseName $ T.unpack $ decodeUtf8 $ fileName $ snd dbf)
+    --    (zip (map (decodeUtf8 . BL.toStrict) $ head rows) colTys)
     -- liftIO $ print disp
 
 ppFile :: File FilePath -> IO ()

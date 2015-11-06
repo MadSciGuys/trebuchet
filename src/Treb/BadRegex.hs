@@ -1,13 +1,11 @@
 {-|
 Module:      Treb.BadRegex
-Description: Unfortunate Regex Evaluation on Data.Text
-Copyright:   Travis Whitaker 2015
+Description: Unfortunate Regex Evaluation on Data.Text.
+Copyright:   Travis Whitaker 2016
 License:     MIT
-Maintainer:  twhitka@its.jnj.com
+Maintainer:  twhitak@its.jnj.com
 Stability:   Provisional
 Portability: POSIX
-
-Please fix this.
 -}
 
 module Treb.BadRegex where
