@@ -292,6 +292,14 @@ data Paging = -- | Linear sampling returns every nth point in the result set.
             | Contiguous
             deriving (Eq, Ord, Show)
 
+-- | A page of query result data.
+data Page = Page {
+    -- | Payload.
+    records :: [[ProtoCell]]
+    -- | Continuation.
+  , cont    :: Word64
+  } deriving (Eq, Ord, Show)
+
 -- | Result set field selector, consisting of a list of field names acting as
 --   either a whitelist or a blacklist.
 data FieldSelector =
@@ -315,6 +323,12 @@ data Query = Query {
   , qList      :: Maybe FieldSelector
     -- | Query result paging strategy.
   , qPage      :: Paging
+  } deriving (Eq, Ord, Show)
+
+-- | A 'Query' result.
+data Result = Result {
+    rFields :: [DataBlockField]
+  , rPage   :: Page
   } deriving (Eq, Ord, Show)
 
 -- | Caller request for new datablock.

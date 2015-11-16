@@ -24,7 +24,7 @@ import Prelude hiding (String)
 
 import qualified Codec.MIME.Parse as MIME
 import qualified Codec.MIME.Type as MIME
-import Data.Aeson
+import Data.Aeson hiding (Result)
 import Data.Aeson.Types (Parser)
 import Data.ByteString.Base64.Lazy as B
 import Data.ByteString.Lazy as BL
@@ -261,6 +261,17 @@ instance FromJSON Paging where
                   "contiguous"      -> return Contiguous
                   _                 -> fail "invalid paging_type"
 
+instance ToJSON Page where
+    toJSON (Page r c) = typeObject "page"
+        [ "page_records" .= r
+        , "page_cont" .= c
+        ]
+
+instance FromJSON Page where
+    parseJSON (Object v) = do
+        "page" <- v .: "type"
+        Page <$> v .: "page_records" <*> v .: "page_cont"
+
 instance ToJSON FieldSelector where
     toJSON (WhiteList fs) = typeObject "field_selector"
             [ "field_selector_op" .= "whitelist"
@@ -296,6 +307,17 @@ instance FromJSON Query where
               <*> v .:? "query_sort"
               <*> v .:? "query_list"
               <*> v .:  "query_paging"
+
+instance ToJSON Result where
+    toJSON (Result f p) = typeObject "result"
+        [ "result_fields" .= f
+        , "result_page" .= p
+        ]
+
+instance FromJSON Result where
+    parseJSON (Object v) = do
+        "result" <- v .: "type"
+        Result <$> v .: "result_fields" <*> v .: "result_page"
 
 instance ToJSON NewDataBlock where
     toJSON (NewDataBlock n o fs) = typeObject "new_datablock"
