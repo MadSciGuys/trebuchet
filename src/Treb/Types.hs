@@ -297,7 +297,7 @@ data Page = Page {
     -- | Payload.
     records :: [[ProtoCell]]
     -- | Continuation.
-  , cont    :: Word64
+  , cont    :: Maybe Word64
   } deriving (Eq, Ord, Show)
 
 -- | Result set field selector, consisting of a list of field names acting as

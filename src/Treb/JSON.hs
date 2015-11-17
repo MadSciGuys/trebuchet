@@ -270,7 +270,8 @@ instance ToJSON Page where
 instance FromJSON Page where
     parseJSON (Object v) = do
         "page" <- v .: "type"
-        Page <$> v .: "page_records" <*> v .: "page_cont"
+        Page <$> v .: "page_records"
+             <*> v .:? "page_cont"
 
 instance ToJSON FieldSelector where
     toJSON (WhiteList fs) = typeObject "field_selector"
