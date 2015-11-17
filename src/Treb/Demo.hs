@@ -24,6 +24,7 @@ import qualified Data.Map as M
 import qualified Data.Set as S
 
 import Network.Wai.Handler.Warp
+import Network.Wai.Middleware.Cors
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Except
 import Servant
@@ -223,4 +224,4 @@ demomain = do
         trebAPI :: Proxy TrebAPI
         trebAPI = Proxy
         app = serve trebAPI server
-    run 8080 app
+    run 8080 $ simpleCors app
