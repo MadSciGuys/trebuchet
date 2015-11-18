@@ -311,14 +311,20 @@ instance FromJSON Query where
 
 instance ToJSON Result where
     toJSON (Result f p) = typeObject "result"
-        [ "result_fields" .= f
+        [ "result_empty" .= False
+        , "result_fields" .= f
         , "result_page" .= p
+        ]
+    toJSON EmptyResult = typeObject "result"
+        [ "result_empty" .= True
         ]
 
 instance FromJSON Result where
     parseJSON (Object v) = do
         "result" <- v .: "type"
-        Result <$> v .: "result_fields" <*> v .: "result_page"
+        e <- v .: "result_empty"
+        case e of False -> Result <$> v .: "result_fields" <*> v .: "result_page"
+                  True  -> return EmptyResult
 
 instance ToJSON NewDataBlock where
     toJSON (NewDataBlock n o fs) = typeObject "new_datablock"
@@ -687,7 +693,7 @@ instance ToJSON P.ProtoCell where
 
 instance FromJSON P.ProtoCell where
     parseJSON (Object v) = do
-        "cell" <- v .: "cell"
+        "cell" <- v .: "type"
         t <- v .: "cell_type"
         case t of P.ProtoIntType      -> P.ProtoIntCell <$> v .: "cell_value"
                   P.ProtoRealType     -> P.ProtoRealCell <$> v .: "cell_value"

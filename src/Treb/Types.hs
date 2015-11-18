@@ -326,10 +326,13 @@ data Query = Query {
   } deriving (Eq, Ord, Show)
 
 -- | A 'Query' result.
-data Result = Result {
-    rFields :: [DataBlockField]
-  , rPage   :: Page
-  } deriving (Eq, Ord, Show)
+data Result =
+              Result {
+                rFields :: [DataBlockField]
+              , rPage   :: Page
+              }
+            | EmptyResult
+            deriving (Eq, Ord, Show)
 
 -- | Caller request for new datablock.
 data NewDataBlock = NewDataBlock {

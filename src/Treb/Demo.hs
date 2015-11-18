@@ -144,6 +144,7 @@ queryDataBlockHandler ts q = do
         setsRows db = ((concat <$>) . sequenceA <$>) .
             mapM (fetchRowSet (dbMmap db) (dbRefs db) (map fieldType (dbFields db)))
         mkPages :: DataBlock -> [S.Set (Int, Int)] -> ExceptT ServantErr IO Result
+        mkPages _ [] = return EmptyResult
         mkPages db s = do
             let prune = case (qList q) of Nothing               -> id
                                           (Just (WhiteList fs)) -> map (inds (map fst (whlst fs)))
@@ -158,7 +159,7 @@ queryDataBlockHandler ts q = do
                 sample (LinearChunking n) = chunk n s
                 sample _                  = [s]
                 mkPagesT :: [ExceptT ServantErr IO [[ProtoCell]]] -> STM [ExceptT ServantErr IO Page]
-                mPagesT (p:[]) = do
+                mkPagesT (p:[]) = do
                     m <- readTVar (pageMap ts)
                     i <- readTVar (pageIndex ts)
                     let p' = setPage Nothing <$> p
