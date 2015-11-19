@@ -158,7 +158,7 @@ queryDataBlockHandler ts q = do
                 sample (LinearChunking n) = chunk n s
                 sample _                  = [s]
                 mkPagesT :: [ExceptT ServantErr IO [[ProtoCell]]] -> STM [ExceptT ServantErr IO Page]
-                mPagesT (p:[]) = do
+                mkPagesT (p:[]) = do
                     m <- readTVar (pageMap ts)
                     i <- readTVar (pageIndex ts)
                     let p' = setPage Nothing <$> p
@@ -224,4 +224,4 @@ demomain = do
         trebAPI :: Proxy TrebAPI
         trebAPI = Proxy
         app = serve trebAPI server
-    run 8080 $ simpleCors app
+    run 8080 $ cors (const $ Just $ simpleCorsResourcePolicy { corsRequestHeaders = "Content-Type":corsRequestHeaders simpleCorsResourcePolicy }) app

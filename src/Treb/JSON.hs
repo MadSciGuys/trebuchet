@@ -687,7 +687,7 @@ instance ToJSON P.ProtoCell where
 
 instance FromJSON P.ProtoCell where
     parseJSON (Object v) = do
-        "cell" <- v .: "cell"
+        "cell" <- v .: "type"
         t <- v .: "cell_type"
         case t of P.ProtoIntType      -> P.ProtoIntCell <$> v .: "cell_value"
                   P.ProtoRealType     -> P.ProtoRealCell <$> v .: "cell_value"
