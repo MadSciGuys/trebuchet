@@ -225,4 +225,4 @@ demomain = do
         trebAPI :: Proxy TrebAPI
         trebAPI = Proxy
         app = serve trebAPI server
-    run 8080 $ simpleCors app
+    run 8080 $ cors (const $ Just $ simpleCorsResourcePolicy { corsRequestHeaders = "Content-Type":corsRequestHeaders simpleCorsResourcePolicy }) app
