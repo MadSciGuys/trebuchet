@@ -84,7 +84,7 @@ parseArgs _          = error "usage: datablock1 [\"col1\", \"col2\", ...] ..."
 mkFileDataBlock :: FilePath -> [T.Text] -> IO DataBlock
 mkFileDataBlock fn fs = do
     dbbs <- B.readFile fn
-    let mkDataBlock rdb rec ci = do
+    let mkDataBlock rdb rec ofs ci = do
             rc <- newTVarIO 0
             (ptr, rs, _, _) <- mmapFilePtr fn ReadOnly Nothing
             return $ DataBlock (AdHocName (rdbTitle rdb) T.empty)
@@ -93,6 +93,7 @@ mkFileDataBlock fn fs = do
                                rc
                                (map mkDataBlockField (rdbFields rdb))
                                ci
+                               ofs
                                ptr
                                rs
                                rec
@@ -101,8 +102,8 @@ mkFileDataBlock fn fs = do
                                              (rfVector rf)
                                              (elem (rfTitle rf) fs)
                                              Nothing
-    case genIndex dbbs fs of (Right (rdb, rec, ci)) -> mkDataBlock rdb rec ci
-                             (Left err)             -> error err
+    case genIndex dbbs fs of (Right (rdb, rec, ofs, ci)) -> mkDataBlock rdb rec ofs ci
+                             (Left err)                  -> error err
 
 insDataBlock :: DataBlockMap -> DataBlock -> IO DataBlockMap
 insDataBlock dbm db = do

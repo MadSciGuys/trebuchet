@@ -182,7 +182,7 @@ instance FromJSON DataBlockField where
 
 -- | Note that this instance encodes only the datablock metadata.
 instance ToJSON DataBlock where
-    toJSON (DataBlock n i o _ fs _ _ s rs) = typeObject "datablock"
+    toJSON (DataBlock n i o _ fs _ _ _ s rs) = typeObject "datablock"
             [ "datablock_name" .= n
             , "datablock_id" .= i
             , "datablock_owner" .= o
@@ -304,7 +304,7 @@ instance FromJSON Query where
     parseJSON (Object v) = do
         "query" <- v .: "type"
         Query <$> v .:  "query_datablock_name"
-              <*> v .:  "query_filter"
+              <*> v .:? "query_filter"
               <*> v .:? "query_sort"
               <*> v .:? "query_list"
               <*> v .:  "query_paging"

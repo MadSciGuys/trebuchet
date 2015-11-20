@@ -196,6 +196,9 @@ data DataBlock = DataBlock {
     --   'fieldIndexed' records are 'True' also have their 'fieldNames' as keys
     --   in the outer 'M.Map'; this is accepted as an invariant.
   , dbIndex  :: CellIndex
+    -- | A set of all pairs of row offsets from the 'dbMmap' pointer and row
+    --   sizes in bytes.
+  , dbInds   :: S.Set (Int, Int)
     -- | Pointer to the head of the datablock memory map.
   , dbMmap   :: Ptr Word8
     -- | Size of the datablock memory map in bytes.
@@ -265,8 +268,9 @@ instance Filterable RecordReader where
 -- | The evaluation of 'Filter RecordReader's requires a special 'ReaderT'
 --   environment. This function wraps 'appFilter' with the appropriate
 --   environment.
-appRecordFilter :: Filter RecordReader -> DataBlock -> S.Set (Int, Int)
-appRecordFilter f d = runReader (appFilter f (return S.empty)) (dbIndex d)
+appRecordFilter :: Maybe (Filter RecordReader) -> DataBlock -> S.Set (Int, Int)
+appRecordFilter Nothing  d = dbInds d
+appRecordFilter (Just f) d = runReader (appFilter f (return S.empty)) (dbIndex d)
 
 -- | Result paging strategy. The results of 'Query' execution may be very
 --   large; paging allows the client to incrementally process the result set.
@@ -312,8 +316,8 @@ data FieldSelector =
 data Query = Query {
     -- | The 'DataBlock' to query.
     qDataBlock :: DataBlockName
-    -- | Record filter.
-  , qFilter    :: Filter RecordReader
+    -- | Record filter. 'Nothing' returns all rows.
+  , qFilter    :: Maybe (Filter RecordReader)
     -- | Optional sorting directive. The 'Bool' indicates whether or not sort
     --   order should be reversed('False' indicates lowest-to-highest according
     --   to the 'Ord' instance). The 'T.Text' is the name of the field to sort

@@ -54,7 +54,7 @@ map1t3 f (a, b, c) = (f a, b, c)
 
 genIndex :: BL.ByteString -- ^ Lazy ByteString of Datablock Payload.
          -> [T.Text]      -- ^ Names of fields to index.
-         -> Either String (ReadDB, Int, CellIndex)
+         -> Either String (ReadDB, Int, S.Set (Int, Int), CellIndex)
 genIndex p fs = do
     (rdb, rs) <- runGetBlob forceReadDBIndex p
     let fis :: [(Int, T.Text)]
@@ -62,9 +62,9 @@ genIndex p fs = do
         rs' :: [([(T.Text, ProtoCell)], Int, Int)]
         rs' = map (map1t3 (zip (map snd fis) . inds (map fst fis))) rs
         cellIndex :: CellIndex
-        (len, cellIndex) = foldl' insRow (0, M.empty) rs'
-        insRow :: (Int, CellIndex) -> ([(T.Text, ProtoCell)], Int, Int) -> (Int, CellIndex)
-        insRow (l, m) (cs, st, sz) = (l+1, foldl' (insCell (st, sz)) m cs)
+        (len, offsets, cellIndex) = foldl' insRow (0, S.empty, M.empty) rs'
+        insRow :: (Int, S.Set (Int, Int), CellIndex) -> ([(T.Text, ProtoCell)], Int, Int) -> (Int, S.Set (Int, Int), CellIndex)
+        insRow (l, o, m) (cs, st, sz) = (l+1, S.insert (st, sz) o, foldl' (insCell (st, sz)) m cs)
         insCell :: (Int, Int) -> CellIndex -> (T.Text, ProtoCell) -> CellIndex
         insCell s m (f, v) = M.alter (insSet s v) f m
         insSet :: (Int, Int)
@@ -73,7 +73,7 @@ genIndex p fs = do
                -> Maybe (M.Map ProtoCell (S.Set (Int, Int)))
         insSet s v Nothing = Just $ M.singleton v (S.singleton s)
         insSet s v (Just m) = Just $ M.alter (Just . maybe (S.singleton s) (S.insert s)) v m
-    return (rdb, len, cellIndex)
+    return (rdb, len, offsets, cellIndex)
 
 fetchRow :: Ptr Word8       -- ^ Pointer to head of datablock memory map.
          -> TVar Int        -- ^ DataBlock reference count.
