@@ -10,6 +10,8 @@ Portability: POSIX
 Functions for generating and querying read-only in-memory indices of Datablocks.
 -}
 
+{-# LANGUAGE BangPatterns #-}
+
 module Treb.Index where
 
 import Control.Concurrent.STM
@@ -56,23 +58,23 @@ genIndex :: BL.ByteString -- ^ Lazy ByteString of Datablock Payload.
          -> [T.Text]      -- ^ Names of fields to index.
          -> Either String (ReadDB, Int, S.Set (Int, Int), CellIndex)
 genIndex p fs = do
-    (rdb, rs) <- runGetBlob forceReadDBIndex p
+    (rdb, rs) <- lazyForceReadDBIndex p
     let fis :: [(Int, T.Text)]
         fis = (filter (((flip elem) fs) . snd) . zip [0..] . map rfTitle) (rdbFields rdb)
         rs' :: [([(T.Text, ProtoCell)], Int, Int)]
         rs' = map (map1t3 (zip (map snd fis) . inds (map fst fis))) rs
         cellIndex :: CellIndex
-        (len, offsets, cellIndex) = foldl' insRow (0, S.empty, M.empty) rs'
+        (!len, !offsets, !cellIndex) = foldl' insRow (0, S.empty, M.empty) rs'
         insRow :: (Int, S.Set (Int, Int), CellIndex) -> ([(T.Text, ProtoCell)], Int, Int) -> (Int, S.Set (Int, Int), CellIndex)
-        insRow (l, o, m) (cs, st, sz) = (l+1, S.insert (st, sz) o, foldl' (insCell (st, sz)) m cs)
+        insRow (!l, !o, !m) (cs, !st, !sz) = (l+1, S.insert (st, sz) o, foldl' (insCell (st, sz)) m cs)
         insCell :: (Int, Int) -> CellIndex -> (T.Text, ProtoCell) -> CellIndex
-        insCell s m (f, v) = M.alter (insSet s v) f m
+        insCell s !m (!f, !v) = M.alter (insSet s v) f m
         insSet :: (Int, Int)
                -> ProtoCell
                -> Maybe (M.Map ProtoCell (S.Set (Int, Int)))
                -> Maybe (M.Map ProtoCell (S.Set (Int, Int)))
-        insSet s v Nothing = Just $ M.singleton v (S.singleton s)
-        insSet s v (Just m) = Just $ M.alter (Just . maybe (S.singleton s) (S.insert s)) v m
+        insSet s !v Nothing = Just $ M.singleton v (S.singleton s)
+        insSet s !v (Just m) = Just $ M.alter (Just . maybe (S.singleton s) (S.insert s)) v m
     return (rdb, len, offsets, cellIndex)
 
 fetchRow :: Ptr Word8       -- ^ Pointer to head of datablock memory map.
