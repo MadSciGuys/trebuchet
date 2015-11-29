@@ -66,10 +66,13 @@ genIndex p fs = do
         rs' :: [(Either String ([(T.Text, ProtoCell)], Int, Int))]
         rs' = map (fmap (map1t3 (zip (map snd fis) . inds (map fst fis)))) rs
         insRow :: (Int, S.Set (Int, Int), CellIndex) -> Either String ([(T.Text, ProtoCell)], Int, Int) -> Either String (Int, S.Set (Int, Int), CellIndex)
-        insRow (!l, !o, !m) (Right (cs, !st, !sz)) = Right (l+1, S.insert (st, sz) o, foldl' (insCell (st, sz)) m cs)
-        insRow _            (Left e)               = Left e
+        insRow (!l, !o, !m) (Right (cs, !st, !sz)) = let l' = l+1
+                                                         o' = S.insert (st, sz) o
+                                                         m' = foldl' (insCell (st, sz)) m cs
+                                                     in l' `seq` o' `seq` m' `seq` Right (l', o', m')
+        insRow _            !(Left e)              = Left e
         insCell :: (Int, Int) -> CellIndex -> (T.Text, ProtoCell) -> CellIndex
-        insCell s !m (!f, !v) = M.alter (insSet s v) f m
+        insCell s@(!st, !sz) !m (!f, !v) = M.alter (insSet s v) f m
         insSet :: (Int, Int)
                -> ProtoCell
                -> Maybe (M.Map ProtoCell (S.Set (Int, Int)))
