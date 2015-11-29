@@ -19,6 +19,8 @@ import Control.Concurrent.STM.TVar
 
 import Control.Exception.Base
 
+import Control.Monad
+
 import Data.Word
 
 import Data.List
@@ -61,12 +63,11 @@ genIndex p fs = do
     (rdb, rs) <- lazyForceReadDBIndex p
     let fis :: [(Int, T.Text)]
         fis = (filter (((flip elem) fs) . snd) . zip [0..] . map rfTitle) (rdbFields rdb)
-        rs' :: [([(T.Text, ProtoCell)], Int, Int)]
-        rs' = map (map1t3 (zip (map snd fis) . inds (map fst fis))) rs
-        cellIndex :: CellIndex
-        (!len, !offsets, !cellIndex) = foldl' insRow (0, S.empty, M.empty) rs'
-        insRow :: (Int, S.Set (Int, Int), CellIndex) -> ([(T.Text, ProtoCell)], Int, Int) -> (Int, S.Set (Int, Int), CellIndex)
-        insRow (!l, !o, !m) (cs, !st, !sz) = (l+1, S.insert (st, sz) o, foldl' (insCell (st, sz)) m cs)
+        rs' :: [(Either String ([(T.Text, ProtoCell)], Int, Int))]
+        rs' = map (fmap (map1t3 (zip (map snd fis) . inds (map fst fis)))) rs
+        insRow :: (Int, S.Set (Int, Int), CellIndex) -> Either String ([(T.Text, ProtoCell)], Int, Int) -> Either String (Int, S.Set (Int, Int), CellIndex)
+        insRow (!l, !o, !m) (Right (cs, !st, !sz)) = Right (l+1, S.insert (st, sz) o, foldl' (insCell (st, sz)) m cs)
+        insRow _            (Left e)               = Left e
         insCell :: (Int, Int) -> CellIndex -> (T.Text, ProtoCell) -> CellIndex
         insCell s !m (!f, !v) = M.alter (insSet s v) f m
         insSet :: (Int, Int)
@@ -75,6 +76,7 @@ genIndex p fs = do
                -> Maybe (M.Map ProtoCell (S.Set (Int, Int)))
         insSet s !v Nothing = Just $ M.singleton v (S.singleton s)
         insSet s !v (Just m) = Just $ M.alter (Just . maybe (S.singleton s) (S.insert s)) v m
+    (len, offsets, cellIndex) <- foldM insRow (0, S.empty, M.empty) rs'
     return (rdb, len, offsets, cellIndex)
 
 fetchRow :: Ptr Word8       -- ^ Pointer to head of datablock memory map.
