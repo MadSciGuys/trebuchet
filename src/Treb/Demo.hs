@@ -129,10 +129,10 @@ filterDataBlockHandler ts f = do
 queryDataBlockHandler :: TrebState -> Query -> ExceptT ServantErr IO Result
 queryDataBlockHandler ts q = do
     dbm <- liftIO $ readMVar (dataBlockMap ts)
-    let runQuery :: DataBlock -> Maybe (Bool, T.Text) -> ExceptT ServantErr IO [S.Set (Int, Int)]
-        runQuery db Nothing           = return . (:[]) $ appRecordFilter (qFilter q) db
-        runQuery db (Just (False, f)) = return . sortResult db f $ appRecordFilter (qFilter q) db
-        runQuery db (Just (True, f))  = return . rSortResult db f $ appRecordFilter (qFilter q) db
+    let runQuery :: DataBlock -> Maybe QuerySort -> ExceptT ServantErr IO [S.Set (Int, Int)]
+        runQuery db Nothing                       = return . (:[]) $ appRecordFilter (qFilter q) db
+        runQuery db (Just (QuerySort (False, f))) = return . sortResult db f $ appRecordFilter (qFilter q) db
+        runQuery db (Just (QuerySort (True, f)))  = return . rSortResult db f $ appRecordFilter (qFilter q) db
         sortResult :: DataBlock -> T.Text -> S.Set (Int, Int) -> [S.Set (Int, Int)]
         sortResult db f s = case M.lookup f (dbIndex db)
                                   of Nothing  -> []

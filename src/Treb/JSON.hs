@@ -280,22 +280,22 @@ instance FromJSON Page where
     parseJSON _ = fail "Invalid 'page' JSON"
 
 instance ToJSON FieldSelector where
-    toJSON (WhiteList fs) = typeObject "field_selector"
-            [ "field_selector_op" .= "whitelist"
-            , "field_selector_list" .= fs
+    toJSON (WhiteList fs) = typeObject "column_list"
+            [ "column_list_type" .= "whitelist"
+            , "column_list_value" .= fs
             ]
-    toJSON (BlackList fs) = typeObject "field_selector"
-            [ "field_selector_op" .= "blacklist"
-            , "field_selector_list" .= fs
+    toJSON (BlackList fs) = typeObject "column_list"
+            [ "column_list_type" .= "blacklist"
+            , "column_list_value" .= fs
             ]
 
 instance FromJSON FieldSelector where
     parseJSON (Object v) = do
-        "field_selector" <- v .: "type"
-        o <- v .: "field_selector_op"
-        case o of "whitelist" -> WhiteList <$> v .: "field_selector_list"
-                  "blacklist" -> BlackList <$> v .: "field_selector_list"
-                  _           -> fail "invalid field_selector_op"
+        "column_list" <- v .: "type"
+        ty <- v .: "column_list_type"
+        case ty of "whitelist" -> WhiteList <$> v .: "column_list_value"
+                   "blacklist" -> BlackList <$> v .: "column_list_value"
+                   _           -> fail "Invalid 'column_list_type' JSON"
     parseJSON _ = fail "Invalid 'field_selector' JSON"
 
 instance ToJSON Query where
@@ -303,7 +303,7 @@ instance ToJSON Query where
             [ "query_datablock_name" .= n
             , "query_filter" .= f
             , "query_sort" .= s
-            , "query_list" .= l
+            , "query_column_list" .= l
             , "query_paging" .= p
             ]
 
@@ -313,9 +313,20 @@ instance FromJSON Query where
         Query <$> v .:  "query_datablock_name"
               <*> v .:? "query_filter"
               <*> v .:? "query_sort"
-              <*> v .:? "query_list"
+              <*> v .:? "query_column_list"
               <*> v .:  "query_paging"
     parseJSON _ = fail "Invalid 'query' JSON"
+
+instance ToJSON QuerySort where
+    toJSON (QuerySort (desc, fieldName)) = typeObject "query_sort"
+        [ "query_sort_desc"       .= desc
+        , "query_sort_field_name" .= fieldName ]
+
+instance FromJSON QuerySort where
+    parseJSON (Object v) = do
+        "query_sort" <- v .: "type"
+        QuerySort <$> ((,) <$> v .: "query_sort_desc" <*> v .: "query_sort_field_name")
+    parseJSON _ = fail "Invalid 'query_sort' JSON"
 
 instance ToJSON Result where
     toJSON (Result f p) = typeObject "result"
