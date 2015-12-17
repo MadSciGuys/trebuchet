@@ -77,6 +77,7 @@ instance FromJSON DataBlockName where
                   JobResultType -> JobResultName <$> v .: "datablock_job_id"
                                                  <*> v .: "datablock_name"
                   AliasType     -> AliasName <$> v .: "datablock_name"
+    parseJSON _ = fail "Invalid 'datablock_name' JSON"
 
 instance ToJSON DataBlockNameType where
     toJSON AdHocType     = "ad_hoc"
@@ -89,7 +90,7 @@ instance FromJSON DataBlockNameType where
     parseJSON (String "recipe_type") = return RecipeType
     parseJSON (String "job_result")  = return JobResultType
     parseJSON (String "alias")       = return AliasType
-    parseJSON _                      = fail "bad data_block_name_type"
+    parseJSON _                      = fail "Invalid 'data_block_name_type' JSON"
 
 instance ToJSON DataBlockFilter where
     toJSON (NameType t) = typeObject "datablock_filter"
@@ -147,20 +148,21 @@ instance FromJSON DataBlockFilter where
     parseJSON (Object v) = do
         "datablock_filter" <- v .: "type"
         o <- v .: "datablock_filter_op"
-        case o of "name_type"       -> NameType <$> v .: "datablock_filter_name_type"
-                  "name_exact"      -> NameExact <$> v .: "datablock_filter_name"
-                  "name_regex"      -> NameRegex <$> v .: "datablock_filter_name_regex"
-                  "hash_exact"      -> IdExact <$> v .: "datablock_filter_hash"
+        case o of "name_type"       -> NameType      <$> v .: "datablock_filter_name_type"
+                  "name_exact"      -> NameExact     <$> v .: "datablock_filter_name"
+                  "name_regex"      -> NameRegex     <$> v .: "datablock_filter_name_regex"
+                  "hash_exact"      -> IdExact       <$> v .: "datablock_filter_hash"
                   "owned"           -> return Owned
-                  "user_id_exact"   -> UserIdExact <$> v .: "datablock_filter_user_id"
+                  "user_id_exact"   -> UserIdExact   <$> v .: "datablock_filter_user_id"
                   "user_name_exact" -> UserNameExact <$> v .: "datablock_filter_user_name"
                   "user_name_regex" -> UserNameRegex <$> v .: "datablock_filter_user_name_regex"
                   "real_name_exact" -> RealNameExact <$> v .: "datablock_filter_real_name"
                   "real_name_regex" -> RealNameRegex <$> v .: "datablock_filter_real_name_regex"
-                  "email_exact"     -> EmailExact <$> v .: "datablock_filter_email"
-                  "email_regex"     -> EmailRegex <$> v .: "datablock_filter_email_regex"
+                  "email_exact"     -> EmailExact    <$> v .: "datablock_filter_email"
+                  "email_regex"     -> EmailRegex    <$> v .: "datablock_filter_email_regex"
                   "contains_field"  -> ContainsField <$> v .: "datablock_filter_field"
-                  _                 -> fail "invalid datablock_filter_op"
+                  _                 -> fail "Invalid 'datablock_filter_op' JSON"
+    parseJSON _ = fail "Invalid 'datablock_filter' JSON"
 
 instance ToJSON DataBlockField where
     toJSON (DataBlockField n t s i m) = typeObject "datablock_field"
@@ -179,6 +181,7 @@ instance FromJSON DataBlockField where
                        <*> v .: "datablock_field_vector_shape"
                        <*> v .: "datablock_field_indexed"
                        <*> v .: "datablock_field_mime_type"
+    parseJSON _ = fail "Invalid 'datablock_field' JSON"
 
 -- | Note that this instance encodes only the datablock metadata.
 instance ToJSON DataBlock where
@@ -238,6 +241,7 @@ instance FromJSON DataBlockRecordFilter where
                             v .: "datablock_record_filter_field" <*>
                             v .: "datablock_record_filter_value"
                   _      -> fail "invalid datablock_record_filter_op"
+    parseJSON _ = fail "Invalid 'datablock_record_filter' JSON"
 
 instance ToJSON Paging where
     toJSON (LinearSampling n) = typeObject "paging"
@@ -260,6 +264,7 @@ instance FromJSON Paging where
                   "bisection"       -> return Bisection
                   "contiguous"      -> return Contiguous
                   _                 -> fail "invalid paging_type"
+    parseJSON _ = fail "Invalid 'paging' JSON"
 
 instance ToJSON Page where
     toJSON (Page r c) = typeObject "page"
@@ -272,6 +277,7 @@ instance FromJSON Page where
         "page" <- v .: "type"
         Page <$> v .: "page_records"
              <*> v .:? "page_cont"
+    parseJSON _ = fail "Invalid 'page' JSON"
 
 instance ToJSON FieldSelector where
     toJSON (WhiteList fs) = typeObject "field_selector"
@@ -290,6 +296,7 @@ instance FromJSON FieldSelector where
         case o of "whitelist" -> WhiteList <$> v .: "field_selector_list"
                   "blacklist" -> BlackList <$> v .: "field_selector_list"
                   _           -> fail "invalid field_selector_op"
+    parseJSON _ = fail "Invalid 'field_selector' JSON"
 
 instance ToJSON Query where
     toJSON (Query n f s l p) = typeObject "query"
@@ -308,6 +315,7 @@ instance FromJSON Query where
               <*> v .:? "query_sort"
               <*> v .:? "query_list"
               <*> v .:  "query_paging"
+    parseJSON _ = fail "Invalid 'query' JSON"
 
 instance ToJSON Result where
     toJSON (Result f p) = typeObject "result"
@@ -325,6 +333,7 @@ instance FromJSON Result where
         e <- v .: "result_empty"
         case e of False -> Result <$> v .: "result_fields" <*> v .: "result_page"
                   True  -> return EmptyResult
+    parseJSON _ = fail "Invalid 'result' JSON"
 
 instance ToJSON NewDataBlock where
     toJSON (NewDataBlock n o fs) = typeObject "new_datablock"
@@ -339,6 +348,7 @@ instance FromJSON NewDataBlock where
         NewDataBlock <$> v .: "new_datablock_name"
                      <*> v .: "new_datablock_owner"
                      <*> v .: "new_datablock_fields"
+    parseJSON _ = fail "Invalid 'new_datablock' JSON"
 
 instance ToJSON Auth where
     toJSON (Auth u p) = typeObject "auth"
@@ -351,6 +361,7 @@ instance FromJSON Auth where
         "auth" <- v .: "type"
         Auth <$> v .: "auth_username"
              <*> v .: "auth_password"
+    parseJSON _ = fail "Invalid 'auth' JSON"
 
 instance ToJSON User where
     toJSON (User i un rn e) = typeObject "user"
@@ -367,6 +378,7 @@ instance FromJSON User where
              <*> v .: "user_name"
              <*> v .: "user_real_name"
              <*> v .: "user_email"
+    parseJSON _ = fail "Invalid 'user' JSON"
 
 instance ToJSON JobArgType where
     toJSON BoolArgType      = typeObject "job_arg_type" ["job_arg_type" .= "bool"]
@@ -408,6 +420,7 @@ instance FromJSON JobArgType where
                   "datablock_tag" -> return DataBlockTagArgType
                   "vector" -> VectorArgType <$> v .:? "job_arg_type_shape"
                                             <*> v .:  "job_arg_type_types"
+    parseJSON _ = fail "Invalid 'job_arg_type' JSON"
 
 instance ToJSON JobArg where
     toJSON (BoolArg b) = typeObject "job_arg"
@@ -468,6 +481,7 @@ instance FromJSON JobArg where
                   "datablock_tag_arg"   -> DataBlockTagArg <$> v .: "job_arg_value"
                   "vector_arg"          -> VectorArg <$> v .: "job_arg_value"
                   _                     -> fail "bad job_arg_type in job_arg"
+    parseJSON _ = fail "Invalid 'job_arg' JSON"
 
 andList :: JobArgVal -> JobArgVal -> [JobArgVal]
 andList (JobArgAnd l r) (JobArgAnd l' r') = andList l r ++ andList l' r'
@@ -534,6 +548,7 @@ instance FromJSON JobArgVal where
                   "or"   -> v .: "job_arg_val_ors"  >>= orUnlist
                   "xor"  -> v .: "job_arg_val_xors" >>= xorUnlist
                   _      -> fail "invalid job_arg_val_clause"
+    parseJSON _ = fail "Invalid 'job_arg_val' JSON"
 
 instance ToJSON JobParam where
     toJSON (JobParam dn kn de df c at) = typeObject "job_param"
@@ -554,6 +569,7 @@ instance FromJSON JobParam where
                  <*> v .:? "job_param_default"
                  <*> v .:  "job_param_category"
                  <*> v .:  "job_param_arg_type"
+    parseJSON _ = fail "Invalid 'job_param' JSON"
 
 instance ToJSON JobTemplate where
     toJSON (JobTemplate i n d ps c ts) = typeObject "job_template"
@@ -574,6 +590,7 @@ instance FromJSON JobTemplate where
                     <*> v .:  "job_template_params"
                     <*> v .:? "job_template_constraints"
                     <*> v .:  "job_template_datablock_tags"
+    parseJSON _ = fail "Invalid 'job_template' JSON"
 
 instance ToJSON JobConfig where
     toJSON (JobConfig n t a d) = typeObject "job_config"
@@ -590,6 +607,7 @@ instance FromJSON JobConfig where
                   <*> v .: "job_config_template_id"
                   <*> v .: "job_config_arguments"
                   <*> v .: "job_config_payload"
+    parseJSON _ = fail "Invalid 'job_config' JSON"
 
 instance ToJSON JobError where
     toJSON (JobCanceled c t) = typeObject "job_error"
@@ -658,6 +676,7 @@ instance FromJSON (Filter (M.Map DataBlockName DataBlock)) where
                   "conj" -> v .: "filter_conj" >>= conjUnlist
                   "disj" -> v .: "filter_disj" >>= disjUnlist
                   _      -> fail "invalid filter_op"
+    parseJSON _ = fail "Invalid 'filter' JSON"
 
 instance FromJSON (Filter RecordReader) where
     parseJSON (Object v) = do
@@ -668,6 +687,7 @@ instance FromJSON (Filter RecordReader) where
                   "conj" -> v .: "filter_conj" >>= conjUnlist
                   "disj" -> v .: "filter_disj" >>= disjUnlist
                   _      -> fail "invalid filter_op"
+    parseJSON _ = fail "Invalid 'filter' JSON"
 
 instance ToJSON P.ProtoCell where
     toJSON (P.ProtoIntCell i) = typeObject "cell"
@@ -700,6 +720,7 @@ instance FromJSON P.ProtoCell where
                   P.ProtoStringType   -> P.ProtoStringCell <$> v .: "cell_value"
                   P.ProtoDateTimeType -> P.ProtoDateTimeCell <$> v .: "cell_value"
                   P.ProtoBinaryType   -> P.ProtoBinaryCell <$> v .: "cell_value"
+    parseJSON _ = fail "Invalid 'cell' JSON"
 
 instance ToJSON P.ProtoInt where
     toJSON (P.ProtoInt (Just i)) = toJSON i
@@ -708,6 +729,7 @@ instance ToJSON P.ProtoInt where
 instance FromJSON P.ProtoInt where
     parseJSON i@(Number _) = P.ProtoInt . Just <$> parseJSON i
     parseJSON Null         = return $ P.ProtoInt Nothing
+    parseJSON _ = fail "Invalid 'proto_int' JSON"
 
 instance ToJSON P.ProtoReal where
     toJSON (P.ProtoReal (Just d)) = toJSON d
@@ -716,6 +738,7 @@ instance ToJSON P.ProtoReal where
 instance FromJSON P.ProtoReal where
     parseJSON d@(Number _) = P.ProtoReal . Just <$> parseJSON d
     parseJSON Null         = return $ P.ProtoReal Nothing
+    parseJSON _ = fail "Invalid 'proto_real' JSON"
 
 instance ToJSON P.ProtoString where
     toJSON (P.ProtoString (Just t)) = String (TL.toStrict (EL.decodeUtf8 (utf8 t)))
@@ -724,6 +747,7 @@ instance ToJSON P.ProtoString where
 instance FromJSON P.ProtoString where
     parseJSON (String t) = return $ P.ProtoString (Just (Utf8 (BL.fromStrict (E.encodeUtf8 t))))
     parseJSON Null       = return $ P.ProtoString Nothing
+    parseJSON _ = fail "Invalid 'proto_string' JSON"
 
 instance ToJSON P.ProtoDateTime where
     toJSON (P.ProtoDateTime (Just i)) = toJSON i
@@ -732,6 +756,7 @@ instance ToJSON P.ProtoDateTime where
 instance FromJSON P.ProtoDateTime where
     parseJSON i@(Number _) = P.ProtoDateTime . Just <$> parseJSON i
     parseJSON Null         = return $ P.ProtoDateTime Nothing
+    parseJSON _ = fail "Invalid 'proto_date_time' JSON"
 
 instance ToJSON P.ProtoBinary where
     toJSON (P.ProtoBinary (Just b)) = String (TL.toStrict (EL.decodeUtf8 (B.encode b)))
@@ -739,13 +764,15 @@ instance ToJSON P.ProtoBinary where
 
 instance FromJSON P.ProtoBinary where
     parseJSON (String s) = return $ P.ProtoBinary (Just (B.decodeLenient (BL.fromStrict (E.encodeUtf8 s))))
-    parseJSON Null        = return $ P.ProtoBinary Nothing
+    parseJSON Null       = return $ P.ProtoBinary Nothing
+    parseJSON _ = fail "Invalid 'proto_binary' JSON"
 
 instance ToJSON MIME.Type where
     toJSON = String . MIME.showType
 
 instance FromJSON MIME.Type where
     parseJSON (String mt) = return $ fromJust $ MIME.parseMIMEType mt
+    parseJSON _ = fail "Invalid 'mime_type' JSON"
 
 instance ToJSON ClientError where
   toJSON (ClientError code msg) =
@@ -773,3 +800,4 @@ instance FromJSON P.ProtoCellType where
     parseJSON (String "string")   = return P.ProtoStringType
     parseJSON (String "datetime") = return P.ProtoDateTimeType
     parseJSON (String "binary")   = return P.ProtoBinaryType
+    parseJSON _ = fail "Invalid 'proto_cell' JSON"
