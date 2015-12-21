@@ -38,6 +38,7 @@ import qualified ProtoDB.Types as P
 import Text.ProtocolBuffers.Basic
 import Treb.Filter
 import Treb.Types
+import qualified Data.List as L
 
 default (T.Text)
 
@@ -185,14 +186,26 @@ instance FromJSON DataBlockField where
 
 -- | Note that this instance encodes only the datablock metadata.
 instance ToJSON DataBlock where
-    toJSON (DataBlock n i o _ fs _ _ _ s rs) = typeObject "datablock"
+    toJSON (DataBlock n i o _ fs ci _ _ s rs) = typeObject "datablock"
             [ "datablock_name" .= n
             , "datablock_id" .= i
             , "datablock_owner" .= o
             , "datablock_fields" .= fs
             , "datablock_byte_size" .= s
             , "datablock_record_count" .= rs
+            , "datablock_unique_values" .= f ci
             ]
+            where
+                f :: CellIndex -> M.Map T.Text (Maybe [P.ProtoCell])
+                f = M.mapWithKey (\f values ->
+                    maybe
+                        Nothing
+                        (\field ->
+                            if fieldType field == P.ProtoStringType && vectorShape field == [] && M.size values <= 500 then
+                                Just (M.keys values)
+                            else
+                                Nothing)
+                        (L.find ((== f) . fieldName) fs))
 
 instance ToJSON DataBlockRecordFilter where
     toJSON (FieldEq f v) = typeObject "datablock_record_filter"
