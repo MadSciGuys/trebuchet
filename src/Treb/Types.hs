@@ -322,12 +322,15 @@ data Query = Query {
     --   order should be reversed('False' indicates lowest-to-highest according
     --   to the 'Ord' instance). The 'T.Text' is the name of the field to sort
     --   on, which must be indexed.
-  , qSort      :: Maybe (Bool, T.Text)
+  , qSort      :: Maybe QuerySort
     -- | Optional field selection directive.
   , qList      :: Maybe FieldSelector
     -- | Query result paging strategy.
   , qPage      :: Paging
   } deriving (Eq, Ord, Show)
+
+newtype QuerySort = QuerySort (Bool, T.Text)
+    deriving (Eq, Ord, Show)
 
 -- | A 'Query' result.
 data Result =

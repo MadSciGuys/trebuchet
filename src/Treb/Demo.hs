@@ -15,6 +15,8 @@ import System.Environment
 
 import System.IO.MMap
 
+import System.Directory
+
 import qualified Data.ByteString.Lazy.Char8 as B
 
 import qualified Data.Text as T
@@ -22,6 +24,9 @@ import qualified Data.Text as T
 import qualified Data.IntMap as I
 import qualified Data.Map as M
 import qualified Data.Set as S
+import qualified Data.List as L
+import Data.ProtoBlob
+import Data.Maybe
 
 import Network.Wai.Handler.Warp
 import Network.Wai.Middleware.Cors
@@ -77,11 +82,12 @@ data TrebState = TrebState {
   }
 
 parseArgs :: [String] -> IO [DataBlock]
-parseArgs []         = return []
-parseArgs (fn:is:as) = (:) <$> mkFileDataBlock fn (read is) <*> parseArgs as
-parseArgs _          = error "usage: datablock1 [\"col1\", \"col2\", ...] ..."
+parseArgs []             = return []
+parseArgs ["--all", dir] = mapM (flip mkFileDataBlock Nothing . ((dir ++ "/") ++)) <$> filter (L.isSuffixOf ".pdb") =<< getDirectoryContents dir
+parseArgs (fn:is:as)     = (:) <$> mkFileDataBlock fn (Just $ read is) <*> parseArgs as
+parseArgs _              = error "usage: datablock1 [\"col1\", \"col2\", ...] ..."
 
-mkFileDataBlock :: FilePath -> [T.Text] -> IO DataBlock
+mkFileDataBlock :: FilePath -> Maybe [T.Text] -> IO DataBlock
 mkFileDataBlock fn fs = do
     dbbs <- B.readFile fn
     let mkDataBlock rdb rec ofs ci = do
@@ -100,10 +106,11 @@ mkFileDataBlock fn fs = do
         mkDataBlockField rf = DataBlockField (rfTitle rf)
                                              (rfType rf)
                                              (rfVector rf)
-                                             (elem (rfTitle rf) fs)
+                                             (maybe True (elem (rfTitle rf)) fs)
                                              Nothing
-    case genIndex dbbs fs of (Right (rdb, rec, ofs, ci)) -> mkDataBlock rdb rec ofs ci
-                             (Left err)                  -> error err
+        allFS = either (const []) (map rfTitle . rdbFields) $ runGetBlob readDB dbbs
+    case genIndex dbbs (fromMaybe allFS fs) of (Right (rdb, rec, ofs, ci)) -> mkDataBlock rdb rec ofs ci
+                                               (Left err)                  -> error err
 
 insDataBlock :: DataBlockMap -> DataBlock -> IO DataBlockMap
 insDataBlock dbm db = do
@@ -129,10 +136,10 @@ filterDataBlockHandler ts f = do
 queryDataBlockHandler :: TrebState -> Query -> ExceptT ServantErr IO Result
 queryDataBlockHandler ts q = do
     dbm <- liftIO $ readMVar (dataBlockMap ts)
-    let runQuery :: DataBlock -> Maybe (Bool, T.Text) -> ExceptT ServantErr IO [S.Set (Int, Int)]
-        runQuery db Nothing           = return . (:[]) $ appRecordFilter (qFilter q) db
-        runQuery db (Just (False, f)) = return . sortResult db f $ appRecordFilter (qFilter q) db
-        runQuery db (Just (True, f))  = return . rSortResult db f $ appRecordFilter (qFilter q) db
+    let runQuery :: DataBlock -> Maybe QuerySort -> ExceptT ServantErr IO [S.Set (Int, Int)]
+        runQuery db Nothing                       = return . (:[]) $ appRecordFilter (qFilter q) db
+        runQuery db (Just (QuerySort (False, f))) = return . sortResult db f $ appRecordFilter (qFilter q) db
+        runQuery db (Just (QuerySort (True, f)))  = return . rSortResult db f $ appRecordFilter (qFilter q) db
         sortResult :: DataBlock -> T.Text -> S.Set (Int, Int) -> [S.Set (Int, Int)]
         sortResult db f s = case M.lookup f (dbIndex db)
                                   of Nothing  -> []
