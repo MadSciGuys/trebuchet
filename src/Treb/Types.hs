@@ -445,7 +445,6 @@ data JobParam = JobParam {
   , jobParamKeyName  :: T.Text
   , jobParamDesc     :: Maybe T.Text
   , jobParamDefault  :: Maybe JobArg
-  , jobParamCategory :: T.Text
   , jobParamArgType  :: JobArgType
   } deriving (Eq, Ord, Show)
 
