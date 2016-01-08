@@ -517,6 +517,17 @@ data Job = Job {
   , jobResult     :: Maybe [DataBlockName]
   } deriving (Eq, Ord, Show)
 
+-- | A request for a worker to execute a job.
+data JobReq = JobReq {
+    -- | 'jobID' of the 'Job' we're requesting.
+    jobReqID :: Word64
+  , -- | 'jobTemplateKey' of the 'JobTemplate' of the 'Job' we're requesting.
+    --   This identifies the "job image" to the worker.
+  , jobReqTemplateKey :: T.Text
+    -- | 'jobConfig' of the 'Job' we're requesting.
+  , jobReqConfig      :: JobConfig
+  } deriving (Eq, Ord, Show)
+
 type JobTemplateMap = MVar (M.Map T.Text (MVar JobTemplate))
 
 type JobConfigMap = MVar (M.Map T.Text (MVar JobConfig))
