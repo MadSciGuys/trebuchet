@@ -481,8 +481,8 @@ data JobConfig = JobConfig {
   , jobConfigDataBlocks :: [(Maybe T.Text, DataBlockName, Maybe Query)]
   } deriving (Eq, Ord, Show)
 
--- | Job error.
-data JobError = -- | Job quick win.
+-- | Job status.
+data JobStatus = -- | Job quick win.
                 JobSuccess {
                   completionTime :: UTCTime
                 }
