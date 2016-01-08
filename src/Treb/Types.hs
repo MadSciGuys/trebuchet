@@ -452,9 +452,12 @@ data JobParam = JobParam {
 -- | A job template, uniquely idenfifying a runnable job and its argument
 --   requirements.
 data JobTemplate = JobTemplate {
-    -- | Unique identifier of a job template.
+    -- | Unique identifier of a job template. Used internally.
     jobTemplateId     :: Word64
-    -- | Job template name.
+    -- | Unique human readable (but invariant) job identifier.
+  , jobTemplateKey    :: T.Text
+    -- | Job template display name. More descriptive than 'jobTemplateKey' and
+    --   potentially subject to change.
   , jobTemplateName   :: T.Text
   , jobTemplateDesc   :: Maybe T.Text
     -- | Job template parameter set, specifiying which arguments /may/ be
@@ -462,8 +465,6 @@ data JobTemplate = JobTemplate {
   , jobTemplateParams :: M.Map T.Text JobParam
     -- | Job argument constraints.
   , jobTemplateConstr :: Maybe JobArgVal
-    -- | Job template datablock tags (first tuple element in 'jobDataBlocks').
-  , jobTemplateDBTags :: [T.Text]
   } deriving (Eq, Ord, Show)
 
 -- | A runnable job configuration. The validity of a type member's 'jobArgs'
