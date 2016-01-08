@@ -482,14 +482,18 @@ data JobConfig = JobConfig {
   } deriving (Eq, Ord, Show)
 
 -- | Job error.
-data JobError = -- | Job cancelation.
-                JobCanceled {
+data JobError = -- | Job quick win.
+                JobSuccess {
+                  completionTime :: UTCTime
+                }
+                -- | Job cancelation.
+              | JobCanceled {
                   canceler   :: User  -- ^ User ID of the canceler.
                 , cancelTime :: UTCTime -- ^ Cancelation time.
                 }
                 -- | Job execution error.
               | JobFailure {
-                  errorString :: T.Text  -- ^ Error string.
+                  errorString :: T.Text  -- ^ Error string, i.e. stderr.
                 , errorTime   :: UTCTime -- ^ Job failure time.
                 }
               deriving (Eq, Show)
@@ -508,10 +512,10 @@ data Job = Job {
     -- | Job start time.
   , jobStart      :: UTCTime
     -- | Job status. 'Nothing' if the job is still executing.
-  , jobStatus     :: Maybe (Either JobError UTCTime)
+  , jobStatus     :: Maybe JobStatus
     -- | Job results. 'Nothing' if the job is still executing.
   , jobResult     :: Maybe [DataBlockName]
-  } deriving (Eq, Show)
+  } deriving (Eq, Ord, Show)
 
 type JobTemplateMap = MVar (M.Map T.Text (MVar JobTemplate))
 
