@@ -575,12 +575,11 @@ instance FromJSON JobArgVal where
     parseJSON _ = fail "Invalid 'job_arg_val' JSON"
 
 instance ToJSON JobParam where
-    toJSON (JobParam dn kn de df c at) = typeObject "job_param"
+    toJSON (JobParam dn kn de df at) = typeObject "job_param"
         [ "job_param_disp_name" .= dn
         , "job_param_key_name" .= kn
         , "job_param_desc" .= de
         , "job_param_default" .= df
-        , "job_param_category" .= c
         , "job_param_arg_type" .= at
         ]
 
@@ -591,29 +590,28 @@ instance FromJSON JobParam where
                  <*> v .:  "job_param_key_name"
                  <*> v .:? "job_param_desc"
                  <*> v .:? "job_param_default"
-                 <*> v .:  "job_param_category"
                  <*> v .:  "job_param_arg_type"
     parseJSON _ = fail "Invalid 'job_param' JSON"
 
 instance ToJSON JobTemplate where
-    toJSON (JobTemplate i n d ps c ts) = typeObject "job_template"
+    toJSON (JobTemplate i k n d ps c) = typeObject "job_template"
             [ "job_template_id"             .= i
+            , "job_template_key"            .= k
             , "job_template_name"           .= n
             , "job_template_description"    .= d
             , "job_template_params"         .= ps
             , "job_template_constraints"    .= c
-            , "job_template_datablock_tags" .= ts
             ]
 
 instance FromJSON JobTemplate where
     parseJSON (Object v) = do
         "job_template" <- v .: "type"
         JobTemplate <$> v .:  "job_template_id"
+                    <*> v .:  "job_template_key"
                     <*> v .:  "job_template_name"
                     <*> v .:? "job_template_description"
                     <*> v .:  "job_template_params"
-                    <*> v .:? "job_template_constraints"
-                    <*> v .:  "job_template_datablock_tags"
+                    <*> v .:  "job_template_constraints"
     parseJSON _ = fail "Invalid 'job_template' JSON"
 
 instance ToJSON JobConfig where
@@ -633,16 +631,20 @@ instance FromJSON JobConfig where
                   <*> v .: "job_config_payload"
     parseJSON _ = fail "Invalid 'job_config' JSON"
 
-instance ToJSON JobError where
-    toJSON (JobCanceled c t) = typeObject "job_error"
-            [ "job_error_type" .= "job_canceled"
-            , "job_error_calceler" .= c
-            , "job_error_cancel_time" .= t
+instance ToJSON JobStatus where
+    toJSON (JobSuccess t) = typeObject "job_status"
+            [ "job_status_type" .= "job_canceled"
+            , "job_status_finish_time" .= t
             ]
-    toJSON (JobFailure e t) = typeObject "job_error"
-            [ "job_error_type" .= "job_failure"
-            , "job_error_string" .= e
-            , "job_error_time" .= t
+    toJSON (JobCanceled c t) = typeObject "job_status"
+            [ "job_status_type" .= "job_canceled"
+            , "job_status_calceler" .= c
+            , "job_status_cancel_time" .= t
+            ]
+    toJSON (JobFailure e t) = typeObject "job_status"
+            [ "job_status_type" .= "job_failure"
+            , "job_status_string" .= e
+            , "job_status_time" .= t
             ]
 
 instance ToJSON Job where
