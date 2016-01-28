@@ -1,11 +1,23 @@
-flags: {}
+resolver: lts-5.0
 packages:
 - '.'
-- '../effusion'
-- '../protoblob'
-- '../protodb'
-- '../mime'
-- '../servant/servant'
-- '../servant/servant-server'
-extra-deps: []
-resolver: nightly-2015-10-08
+- location:
+    git: ssh://phab@phabricator.pku.pdms.jnj.com/diffusion/EF/effusion.git
+    commit: db1c81271d6047eecb73f8f12719e32ff3b798f7
+- location:
+    git: ssh://phab@phabricator.pku.pdms.jnj.com/diffusion/PBLOB/protoblob.git
+    commit: 909e37ed835b1f27acfbd1d9e3fd2418cd222c86
+- location:
+    git: ssh://phab@phabricator.pku.pdms.jnj.com/diffusion/PDB/protodb.git
+    commit: 8ad2eb59a26bbf4544807dbc343d20806efdc026
+- location:
+    git: https://github.com/haskell-servant/servant.git
+    commit: 2ae504143a97578d62acd9bfb3d87b873c5658a7
+  subdirs:
+  - servant
+  - servant-server
+extra-deps:
+- optparse-applicative-0.12.0.0
+- iso8601-time-0.1.4
+- mime-0.4.0.2
+- hasql-postgres-0.10.6
