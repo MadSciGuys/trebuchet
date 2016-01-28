@@ -515,13 +515,13 @@ data Job = Job {
   , jobStatus     :: Maybe JobStatus
     -- | Job results. 'Nothing' if the job is still executing.
   , jobResult     :: Maybe [DataBlockName]
-  } deriving (Eq, Ord, Show)
+  } deriving (Eq, Show)
 
 -- | A request for a worker to execute a job.
 data JobReq = JobReq {
     -- | 'jobID' of the 'Job' we're requesting.
     jobReqID :: Word64
-  , -- | 'jobTemplateKey' of the 'JobTemplate' of the 'Job' we're requesting.
+    -- | 'jobTemplateKey' of the 'JobTemplate' of the 'Job' we're requesting.
     --   This identifies the "job image" to the worker.
   , jobReqTemplateKey :: T.Text
     -- | 'jobConfig' of the 'Job' we're requesting.
