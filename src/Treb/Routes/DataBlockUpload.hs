@@ -8,11 +8,14 @@ Stability:   Provisional
 Portability: POSIX
 -}
 
-{-# LANGUAGE DataKinds, TypeOperators, OverloadedStrings, TypeFamilies
+{-# LANGUAGE DataKinds, TypeOperators, OverloadedStrings, TypeFamilies,
              ExistentialQuantification, FlexibleInstances, ScopedTypeVariables,
              TypeSynonymInstances #-}
 
-module Treb.Routes.DataBlockUpload ( DataBlockUploadH, dataBlockUploadH ) where
+module Treb.Routes.DataBlockUpload
+    ( DataBlockUploadH
+    , dataBlockUploadH
+    ) where
 
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L

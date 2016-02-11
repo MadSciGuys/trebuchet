@@ -10,8 +10,12 @@ Portability: POSIX
 
 {-# LANGUAGE DataKinds, TypeOperators, OverloadedStrings #-}
 
-module Treb.Routes.JobFilter ( JobFilterH, jobFilterH ) where
+module Treb.Routes.JobFilter
+    ( JobFilterH
+    , jobFilterH
+    ) where
 
+import Servant.API
 import Treb.Routes.Types
 
 ---- Route-Specific Type ----

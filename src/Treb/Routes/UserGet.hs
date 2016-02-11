@@ -10,8 +10,12 @@ Portability: POSIX
 
 {-# LANGUAGE DataKinds, TypeOperators, OverloadedStrings #-}
 
-module Treb.Routes.UserGet ( UserGetH, userGetH ) where
+module Treb.Routes.UserGet
+    ( UserGetH
+    , userGetH
+    ) where
 
+import Servant.API
 import Treb.Routes.Types
 
 ---- Route-Specific Type ----

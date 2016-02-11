@@ -13,23 +13,13 @@ Portability: POSIX
              ExistentialQuantification #-}
 
 module Treb.Routes.Types
-    ( module Servant
-    , module Servant.Server
-    , TrebServer
+    ( TrebServer
     , TrebServerBase
-    , TrebEnv(..)
     , TrebConfig(..)
     , DrupalAuth
     , ActiveUploads
     , TrebServerUpload(..)
-    -- , setTrebEnvJobTemplates
-    , setTrebEnvDrupalMySQLConn
-    , setTrebEnvPgPool
-    , setTrebEnvUsername
-    , setTrebEnvConfig
-    , setTrebEnvActiveUploads
-    , setTrebEnvUploadIdGen
-    , setTrebEnvCurrentUser ) where
+    ) where
 
 import qualified Database.MySQL.Simple as MySQL
 import qualified Data.Aeson as A
@@ -49,29 +39,6 @@ import Control.Monad.Trans.Except
 ---- Core Types ----
 type TrebServer layout = ServerT layout TrebServerBase
 type TrebServerBase = ReaderT TrebEnv (ExceptT ServantErr IO)
-
-data TrebEnv = TrebEnv
-  { trebEnvConfig :: TrebConfig
-  -- , trebEnvJobTemplates :: TVar [JobTemplate]
-    -- ^ This TVar is written to upon inotify events in the job templates
-    -- directory.
-  , trebEnvDrupalMySQLConn :: Maybe MySQL.Connection
-    -- ^ This is intended for authentication.
-  , trebEnvPgPool :: Pool Postgres
-  , trebEnvUsername :: Maybe Text -- ^ Temporary. To be replaced by trebEnvUser
-  , trebEnvActiveUploads :: TVar ActiveUploads
-  , trebEnvUploadIdGen :: TVar StdGen
-  , trebEnvCurrentUser :: Maybe User
-  , trebEnvBaseURI :: URI
-  , trebEnvDataBlockMap   :: DataBlockMap
-  , trebEnvUserMap        :: UserMap
-  , trebEnvJobTemplateMap :: JobTemplateMap
-  , trebEnvJobConfigMap   :: JobConfigMap
-  , trebEnvJobMap         :: JobMap
-  }
-
-instance Show TrebEnv where
-    show _ = "<TrebEnv>"
 
 data TrebConfig = TrebConfig
   { confDebugMode      :: Maybe Bool
@@ -100,13 +67,3 @@ type DrupalAuth = Header "Cookie" Text
 type ActiveUploads = Map (Text, Int) TrebServerUpload
 
 data TrebServerUpload = forall a. A.ToJSON a => TrebServerUpload (B.ByteString -> TrebServerBase a)
-
--- Record Mutators --
--- setTrebEnvJobTemplates    x env = env { trebEnvJobTemplates    = x }
-setTrebEnvDrupalMySQLConn x env = env { trebEnvDrupalMySQLConn = x }
-setTrebEnvPgPool          x env = env { trebEnvPgPool          = x }
-setTrebEnvUsername        x env = env { trebEnvUsername        = x }
-setTrebEnvConfig          x env = env { trebEnvConfig          = x }
-setTrebEnvActiveUploads   x env = env { trebEnvActiveUploads   = x }
-setTrebEnvUploadIdGen     x env = env { trebEnvUploadIdGen     = x }
-setTrebEnvCurrentUser     x env = env { trebEnvCurrentUser     = x }

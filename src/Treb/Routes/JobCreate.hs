@@ -10,8 +10,12 @@ Portability: POSIX
 
 {-# LANGUAGE DataKinds, TypeOperators, OverloadedStrings #-}
 
-module Treb.Routes.JobCreate ( JobCreateH, jobCreateH ) where
+module Treb.Routes.JobCreate
+    ( JobCreateH
+    , jobCreateH
+    ) where
 
+import Servant.API
 import Treb.Routes.Types
 
 ---- Route-Specific Type ----

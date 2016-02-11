@@ -11,7 +11,11 @@ Portability: POSIX
 {-# LANGUAGE DataKinds, TypeOperators, OverloadedStrings,
              ExistentialQuantification #-}
 
-module Treb.Routes.FileUpload ( FileUploadH, fileUploadH, newFileUpload ) where
+module Treb.Routes.FileUpload
+    ( FileUploadH
+    , fileUploadH
+    , newFileUpload
+    ) where
 
 import qualified Data.ByteString as B
 import qualified Data.Map as M
@@ -20,6 +24,7 @@ import Control.Monad.Reader
 import Control.Monad.Trans.Class ()
 import Control.Monad.Trans.Either ()
 import Data.Aeson (Value, ToJSON, toJSON)
+import Servant.API
 import Treb.Routes.Helpers
 import Treb.Routes.Types
 import Treb.Types

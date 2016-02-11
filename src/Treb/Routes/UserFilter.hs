@@ -10,8 +10,12 @@ Portability: POSIX
 
 {-# LANGUAGE DataKinds, TypeOperators, OverloadedStrings #-}
 
-module Treb.Routes.UserFilter ( UserFilterH, userFilterH ) where
+module Treb.Routes.UserFilter
+    ( UserFilterH
+    , userFilterH
+    ) where
 
+import Servant.API
 import Treb.Routes.Types
 
 ---- Route-Specific Type ----

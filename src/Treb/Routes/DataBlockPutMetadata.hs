@@ -10,8 +10,12 @@ Portability: POSIX
 
 {-# LANGUAGE DataKinds, TypeOperators, OverloadedStrings #-}
 
-module Treb.Routes.DataBlockPutMetadata ( DataBlockPutMetadataH, dataBlockPutMetadataH ) where
+module Treb.Routes.DataBlockPutMetadata
+    ( DataBlockPutMetadataH
+    , dataBlockPutMetadataH
+    ) where
 
+import Servant.API
 import Treb.Routes.Types
 
 ---- Route-Specific Type ----

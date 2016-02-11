@@ -10,8 +10,12 @@ Portability: POSIX
 
 {-# LANGUAGE DataKinds, TypeOperators, OverloadedStrings #-}
 
-module Treb.Routes.DataBlockGet ( DataBlockGetH, dataBlockGetH ) where
+module Treb.Routes.DataBlockGet
+    ( DataBlockGetH
+    , dataBlockGetH
+    ) where
 
+import Servant.API
 import Treb.Routes.Types
 
 ---- Route-Specific Type ----

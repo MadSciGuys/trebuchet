@@ -10,15 +10,17 @@ Portability: POSIX
 
 {-# LANGUAGE DataKinds, TypeOperators, OverloadedStrings #-}
 
-module Treb.Routes.JobTemplateFilter ( JobTemplateFilterH, jobTemplateFilterH ) where
+module Treb.Routes.JobTemplateFilter
+    ( JobTemplateFilterH
+    , jobTemplateFilterH
+    ) where
 
-import Servant
+import Servant.API
 import Treb.Routes.Types
 
 ---- Route-Specific Type ----
 type JobTemplateFilterH =
-    -- TODO: Implement actual JobTemplate filtering and then change this type to handle the /job_template/filter URL.
-    "job_template" :> "all"
+    "job_template" :> "filter"
         :> Get '[JSON] [JobTemplate]
 
 jobTemplateFilterH :: TrebServer JobTemplateFilterH
